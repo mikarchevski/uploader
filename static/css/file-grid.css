@@ -1,0 +1,103 @@
+/* file-grid.css */
+
+/* --- Сетка файлов --- */
+.files-grid {
+    display: grid;
+    position: relative;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-gap: 2rem;
+    padding: 1rem;
+    min-height: 400px; 
+    position: relative; 
+}
+
+.files-grid.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Спиннер загрузки */
+.spinner-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.no-files { 
+    grid-column: 1 / -1; 
+    text-align: center; 
+    padding: 4rem; 
+    color: var(--muted); 
+    background: white; 
+    border-radius: 12px; 
+    border: 1px dashed var(--border);
+}
+
+/* Адаптивность сетки */
+@media (max-width: 768px) {
+    .files-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+/* static/css/file-grid.css */
+/* Явное состояние для загруженной сетки */
+.files-grid:not(.loading) {
+    display: grid !important; /* Принудительно включаем грид */
+}
+
+/* Скрываем спинник, если класса loading нет */
+.files-grid:not(.loading) .spinner-wrapper {
+    display: none !important;
+}
+/* Стили для сообщения "Нет файлов" */
+.no-files {
+    grid-column: 1 / -1; /* Растягиваем на всю ширину грида */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    background: white;
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+    width: 100%;
+    min-height: 300px;
+}
+.no-files h3 {
+    margin: 0.5rem 0;
+    color: var(--text);
+    font-size: 1.2rem;
+}
+
+.no-files p {
+    margin: 0;
+    font-size: 0.9rem;
+}

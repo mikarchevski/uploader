@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - File Share</title>
+    <!-- Подключаем основные стили (если там есть переменные цветов) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Подключаем специфичные стили для авторизации -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1 id="pageTitle">Вход</h1>
+        </div>
+
+        <!-- Блок ошибки. Если сервер вернул error, показываем его -->
+        <div id="errorMessage" class="error-msg {% if error %}visible{% endif %}">
+            {% if error %}{{ error }}{% endif %}
+        </div>
+
+        <!-- Форма всегда отправляет на /login -->
+        <form method="POST" action="/login">
+            <!-- Скрытое поле для режима. 0 = вход, 1 = регистрация -->
+            <input type="hidden" name="register" id="registerMode" value="0">
+
+            <div class="form-group">
+                <label class="form-label">Имя пользователя</label>
+                <input type="text" name="username" class="form-input" required autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Пароль</label>
+                <input type="password" name="password" class="form-input" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">Войти</button>
+        </form>
+
+        <div class="auth-switch">
+            <span id="switchText">Нет аккаунта?</span>
+            <a class="auth-link" id="toggleLink">Зарегистрироваться</a>
+        </div>
+        
+        <a href="/" class="back-home">← Вернуться на главную</a>
+    </div>
+
+    <!-- Подключаем скрипт авторизации -->
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

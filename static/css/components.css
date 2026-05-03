@@ -1,0 +1,530 @@
+/* components.css */
+body {
+    background-color: var(--bg-body);
+    color: var(--text-main);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- Элементы формы загрузки --- */
+.drop-zone { 
+    border: 2px dashed var(--border); 
+    border-radius: 8px; 
+    padding: 2rem 1rem; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    background: #fafbfc; 
+    margin-bottom: 1rem;
+}
+.drop-zone:hover, .drop-zone.active { border-color: var(--primary); background: #eff6ff; }
+
+.file-info { margin: 1rem 0; padding: 0.75rem; background: #f1f5f9; border-radius: 6px; display: none; }
+.file-info.show { display: block; }
+.file-name { font-weight: 500; word-break: break-all; font-size: 0.9rem; }
+.file-size { color: var(--muted); font-size: 0.8rem; }
+
+.btn { 
+    width: 100%; 
+    padding: 0.75rem; 
+    background: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    border-radius: 6px; 
+    font-size: 1rem; 
+    cursor: pointer; 
+    transition: all 0.2s ease; /* Изменили на all для плавности всех свойств */
+    margin-top: 1rem; 
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Легкая тень по умолчанию */
+}
+
+.btn:hover { 
+    background: var(--primary); /* Меняем фон на основной цвет при наведении */
+    color: white; /* Текст становится белым */
+    border-color: var(--primary);
+    transform: translateY(-1px); /* Легкий подъем кнопки */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Усиливаем тень */
+}
+
+.btn:active {
+    transform: translateY(0); /* Возврат при нажатии */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn:disabled { 
+    background: var(--muted); 
+    cursor: not-allowed; 
+    transform: none;
+    box-shadow: none;
+}
+
+.status { text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--muted); min-height: 1.25rem; }
+.progress-wrap { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 0.5rem; overflow: hidden; display: none; }
+.progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+
+.result { margin-top: 1.5rem; padding: 1rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; display: none; }
+.result.show { display: block; }
+.result-title { font-weight: 500; margin-bottom: 0.5rem; color: #166534; font-size: 0.9rem; }
+.link-box { display: flex; gap: 0.5rem; }
+.link-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border); /* <-- Переменная */
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    background-color: var(--bg-card); /* Фон инпута */
+    color: var(--text-main); /* Текст инпута */
+}
+.copy-btn { padding: 0.5rem; background: var(--info); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+
+/* --- Карточка файла --- */
+.file-card {
+    display: flex;
+  align-items: center;
+  position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+     color: var(--text-main);
+    border-radius: 12px;
+    padding: 1rem;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    max-height: 237px;
+}
+
+.file-card:hover {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    border-color: var(--primary);
+    background: var(--card-bg);
+}
+
+.file-icon {
+    display: block;
+    position: relative;
+    cursor: pointer;
+    width: 50%;
+    height: 100px;
+    font-size: 3rem; /* Обновленный размер */
+    text-align: center;
+    padding: 1rem 0;
+    color: var(--primary);
+}
+
+.file-details { margin-bottom: 1rem; }
+.file-card-name { 
+    font-weight: 600; 
+    font-size: 1rem; 
+    margin-bottom: 0.5rem; 
+    word-break: break-word;
+    line-height: 1.3;
+    color: var(--text-main);
+}
+.file-card-meta { 
+    font-size: 0.8rem; 
+    color: var(--text-muted);
+    display: flex; 
+    justify-content: space-between;
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.action-btn {
+    flex: 1;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    text-align: center;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.btn-download { background: var(--success); color: white; }
+.btn-download:hover { background: #059669; }
+
+.btn-copy { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
+.btn-copy:hover { background: #e2e8f0; }
+
+.no-files { 
+    grid-column: 1 / -1; 
+    text-align: center; 
+    padding: 4rem; 
+    color: var(--muted); 
+    background: var(--bg-card);
+    border-radius: 12px; 
+    border: 1px dashed var(--border);
+}
+
+.file-preview-img {
+    width: 50%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    background-color: #f1f5f9;
+}
+
+.file-icon-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100px;
+    font-size: 3.5rem; /* Увеличил размер эмодзи */
+    text-align: center;
+    color: var(--primary);
+    margin-bottom: 0.75rem;
+}
+
+/* components.css - добавить в самый конец */
+
+/* --- Стили для мультиселекта (Выделение файлов) --- */
+
+/* Убедимся, что карточка имеет курсор pointer */
+.file-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative; /* Для z-index */
+}
+
+/* Стили для выбранной карточки */
+.file-card.selected {
+    border-color: var(--primary) !important;
+    background-color: #eff6ff !important; /* Светло-синий фон */
+    box-shadow: 0 0 0 2px var(--primary) !important; /* Яркая синяя обводка */
+    transform: translateY(-2px);
+    z-index: 10;
+}
+
+/* Чтобы при наведении на выбранную карточку она не теряла стиль */
+.file-card.selected:hover {
+    border-color: var(--primary) !important;
+    background-color: #dbeafe !important; /* Чуть темнее при наведении */
+    box-shadow: 0 0 0 2px var(--primary) !important;
+}
+
+/* --- Кнопка массового удаления --- */
+.btn-bulk-delete {
+    padding: 0.5rem 1rem;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    margin-right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    
+    /* Z-index выше, чем у панели действий файла (1000) */
+    z-index: 1100; 
+    position: relative;
+}
+
+.btn-bulk-delete:hover {
+    background-color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+}
+
+.btn-bulk-delete.hidden {
+    display: none !important;
+}
+
+/* Анимация появления кнопки */
+@keyframes fadeInBulkBtn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.btn-bulk-delete:not(.hidden) {
+    animation: fadeInBulkBtn 0.3s ease-out forwards;
+}
+
+/* Запрет выделения текста при драге */
+body.is-dragging, 
+body.is-dragging * {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default; /* Или crosshair, как вам нравится */
+}
+
+/* Убедитесь, что у карточек есть pointer-events: auto, чтобы они реагировали на клики */
+.file-card {
+    pointer-events: auto;
+    /* Остальные ваши стили... */
+}
+
+/* В файле style.css или components.css */
+.files-grid {
+    user-select: none; /* Запрещаем выделение всего внутри сетки по умолчанию */
+}
+
+.file-card-name, 
+.file-card-meta {
+    user-select: text; /* Разрешаем выделение текста внутри карточек для обычного клика */
+}
+
+/* --- User Menu Styles (Top Right Corner) --- */
+
+/* Обертка для позиционирования в правом верхнем углу main-content */
+.user-menu-wrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 100; /* Поверх всего, но под модальными окнами */
+}
+
+/* Круглая кнопка с иконкой */
+.user-menu-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: white;
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.user-menu-btn:hover {
+    background-color: #f8fafc;
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Выпадающее меню */
+.user-dropdown {
+    position: absolute;
+    top: 55px; /* Чуть ниже кнопки */
+    right: 0;
+    width: 240px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 1px solid var(--border);
+    z-index: 1000;
+    padding: 0.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); /* Плавная анимация */
+    
+    /* ДОБАВИТЬ ЭТУ СТРОКУ: */
+    overflow: hidden; 
+}
+
+.user-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.user-dropdown.hidden {
+    display: none;
+}
+
+/* Заголовок меню (Аватар + Имя) */
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem;
+    border-bottom: 1px solid transparent; /* Резерв места */
+}
+
+.dropdown-avatar {
+    width: 36px;
+    height: 36px;
+    background-color: #eff6ff;
+    color: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dropdown-username {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Разделитель */
+.dropdown-divider {
+    height: 1px;
+    background-color: var(--border);
+    margin: 0.25rem 0.5rem;
+}
+
+/* Пункты меню */
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: background-color 0.2s, color 0.2s;
+    font-weight: 500;
+    width: 100%; /* Важно для кнопок, чтобы они занимали всю ширину */
+    text-align: left;
+    background: none; /* Сброс фона кнопки */
+    border: none;     /* Сброс границы кнопки */
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: #f1f5f9;
+}
+
+/* Специфичные стили для кнопки выхода */
+.logout-item {
+    color: #ef4444;
+}
+
+.logout-item:hover {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+/* Адаптивность для мобильных: меню чуть ближе к краю */
+@media (max-width: 768px) {
+    .user-menu-wrapper {
+        top: 15px;
+        right: 15px;
+    }
+}
+
+/* Меню сортировки и пользователя */
+.sort-menu, .user-dropdown {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    padding: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+/* Стили для опций в меню */
+.sort-option, .dropdown-item {
+    display: block;
+    width: 90%;
+    text-align: left;
+    padding: 0.75rem;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    transition: background-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.sort-option:hover, .dropdown-item:hover {
+    background-color: var(--border);
+    color: var(--text-main);
+}
+
+.sort-option.active, .dropdown-item.active {
+    background-color: #eff6ff; /* Для светлой темы */
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* Стили для кнопки переключения темы в меню */
+.theme-toggle-item {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+/* .theme-toggle-item:hover {
+    background-color: var(--border);
+} */
+
+/* Класс для скрытия иконок */
+.hidden {
+    display: none !important;
+}
+
+/* Убираем границу у карточек на светлой теме, оставляем только тень */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .file-card {
+        border: none;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .sort-menu, .user-dropdown {
+        right: auto;
+        left: 0;
+        width: 100%;
+    }
+}
+
+.btn-sort {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 200px;
+    gap: 8px;
+    padding: 0.5rem 1rem;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    transition: 0.2s;
+    overflow: hidden;
+}
+
+.btn-sort:hover {
+    background: #f8fafc;
+    border-color: var(--primary);
+}

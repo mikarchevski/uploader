@@ -1,0 +1,409 @@
+:root { 
+    --primary: #2563eb; 
+    --bg: #f8fafc; 
+    --card: #ffffff; 
+    --text: #0f172a; 
+    --muted: #64748b; 
+    --border: #e2e8f0; 
+    --success: #10b981; 
+    --info: #3b82f6; 
+    --card-bg: #e0d9d9;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { 
+    font-family: system-ui, -apple-system, sans-serif; 
+    background: var(--bg); 
+    color: var(--text); 
+    display: flex; 
+    min-height: 100vh; 
+    padding: 0; 
+}
+
+/* --- Левая панель (Загрузка) --- */
+.sidebar {
+    width: 25%;
+    min-width: 300px;
+    max-width: 400px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+}
+
+.sidebar h1 { font-size: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
+
+.drop-zone { 
+    border: 2px dashed var(--border); 
+    border-radius: 8px; 
+    padding: 2rem 1rem; 
+    text-align: center; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    background: #fafbfc; 
+    margin-bottom: 1rem;
+}
+.drop-zone:hover, .drop-zone.active { border-color: var(--primary); background: #eff6ff; }
+
+.file-info { margin: 1rem 0; padding: 0.75rem; background: #f1f5f9; border-radius: 6px; display: none; }
+.file-info.show { display: block; }
+.file-name { font-weight: 500; word-break: break-all; font-size: 0.9rem; }
+.file-size { color: var(--muted); font-size: 0.8rem; }
+
+.btn { 
+    width: 100%; 
+    padding: 0.75rem; 
+    background: var(--primary); 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    font-size: 1rem; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    margin-top: 1rem; 
+}
+.btn:hover { opacity: 0.9; }
+.btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+.status { text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--muted); min-height: 1.25rem; }
+.progress-wrap { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 0.5rem; overflow: hidden; display: none; }
+.progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+
+.result { margin-top: 1.5rem; padding: 1rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; display: none; }
+.result.show { display: block; }
+.result-title { font-weight: 500; margin-bottom: 0.5rem; color: #166534; font-size: 0.9rem; }
+.link-box { display: flex; gap: 0.5rem; }
+.link-input { flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 0.75rem; }
+.copy-btn { padding: 0.5rem; background: var(--info); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+
+/* --- Правая часть (Список файлов) --- */
+.main-content {
+    margin-left: 25%; /* Отступ под сайдбар */
+    width: 75%;
+    padding: 2rem;
+    min-height: 100vh;
+}
+
+.files-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+.files-header h2 { font-size: 1.8rem; }
+.file-count { color: var(--muted); font-size: 0.9rem; }
+
+/* Плитка файлов */
+.files-grid {
+    display: grid;
+    position: relative;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem;
+    
+    /* Фиксированная минимальная высота, чтобы контейнер не схлопывался при загрузке */
+    min-height: 400px; 
+    
+    /* Важно для позиционирования спиннера внутри */
+    position: relative; 
+}
+
+/* Режим загрузки: переключаемся на Flexbox для центрирования спиннера */
+.files-grid.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Обертка для спиннера */
+.spinner-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+/* Сам крутящийся элемент */
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.file-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    height: 100%;
+}
+
+.file-card:hover {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    border-color: var(--primary);
+    background: var(--card-bg);
+}
+
+.file-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: var(--primary);
+}
+
+.file-details { margin-bottom: 1rem; }
+.file-card-name { 
+    font-weight: 600; 
+    font-size: 1rem; 
+    margin-bottom: 0.5rem; 
+    word-break: break-word;
+    line-height: 1.3;
+}
+.file-card-meta { 
+    font-size: 0.8rem; 
+    color: var(--muted); 
+    display: flex; 
+    justify-content: space-between;
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.action-btn {
+    flex: 1;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    text-align: center;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.btn-download { background: var(--success); color: white; }
+.btn-download:hover { background: #059669; }
+
+.btn-copy { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
+.btn-copy:hover { background: #e2e8f0; }
+
+.no-files { 
+    grid-column: 1 / -1; 
+    text-align: center; 
+    padding: 4rem; 
+    color: var(--muted); 
+    background: white; 
+    border-radius: 12px; 
+    border: 1px dashed var(--border);
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    body { flex-direction: column; }
+    .sidebar { 
+        width: 100%; 
+        max-width: none; 
+        position: relative; 
+        border-right: none; 
+        border-bottom: 1px solid var(--border);
+        padding: 1.5rem;
+    }
+    .main-content { 
+        margin-left: 0; 
+        width: 100%; 
+        padding: 1.5rem;
+    }
+    .files-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+.fullscreen-drop-zone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background: rgba(37, 99, 235, 0.1);
+    border: 4px dashed var(--primary);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.fullscreen-drop-zone.active {
+    display: flex;
+    pointer-events: auto;
+}
+
+.fullscreen-drop-zone .drop-message {
+    font-size: 2rem;
+    color: var(--primary);
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+/* Скрываем старую зону в сайдбаре, но оставляем её функциональной через JS */
+.sidebar .drop-zone {
+    opacity: 0.7;
+    cursor: default;
+}
+
+/* Всплывающее уведомление о загрузке */
+#uploadNotification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 350px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: 1rem;
+    z-index: 10000;
+    transform: translateY(100%);
+    opacity: 0;
+    transition: all 0.3s ease-out;
+    display: none;
+}
+
+#uploadNotification.show {
+    transform: translateY(0);
+    opacity: 1;
+    display: block;
+}
+
+#uploadNotification.success {
+    border-left: 4px solid var(--success);
+}
+
+.notif-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.notif-title {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.notif-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--muted);
+    line-height: 1;
+}
+
+.notif-close:hover {
+    color: var(--text);
+}
+
+.notif-filename {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    word-break: break-all;
+}
+
+.notif-filesize {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+}
+
+.notif-message {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+}
+
+.notif-progress-wrap {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.notif-progress-bar {
+    height: 100%;
+    background: var(--primary);
+    width: 0%;
+    transition: width 0.2s;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    #uploadNotification {
+        width: calc(100% - 40px);
+        right: 20px;
+        left: 20px;
+    }
+}
+
+.file-preview-img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    background-color: #f1f5f9;
+}
+
+.file-icon {
+    font-size: 3rem;
+    text-align: center;
+    padding: 1rem 0;
+    color: var(--primary);
+}

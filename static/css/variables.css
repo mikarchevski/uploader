@@ -1,0 +1,83 @@
+/* static/css/variables.css */
+
+:root {
+    /* --- Светлая тема (по умолчанию) --- */
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    
+    --bg-body: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    
+    --border: #e2e8f0;
+    --shadow: rgba(0, 0, 0, 0.05);
+    
+    --success: #10b981;
+    --danger: #ef4444;
+    --info: #3b82f6;
+}
+
+/* --- Тёмная тема (автоматически по системе ИЛИ по кнопке) --- */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --primary: #60a5fa;
+        --primary-hover: #3b82f6;
+        
+        --bg-body: #0f172a;
+        --bg-card: #1e293b;
+        --bg-sidebar: #1e293b;
+        
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+        
+        --border: #334155;
+        --shadow: rgba(0, 0, 0, 0.3);
+        
+        --success: #34d399;
+        --danger: #f87171;
+        --info: #60a5fa;
+    }
+}
+
+/* --- Принудительная тёмная тема через кнопку --- */
+[data-theme="dark"] {
+    --primary: #60a5fa;
+    --primary-hover: #3b82f6;
+    
+    --bg-body: #0f172a;
+    --bg-card: #1e293b;
+    --bg-sidebar: #1e293b;
+    
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    
+    --border: #334155;
+    --shadow: rgba(0, 0, 0, 0.3);
+    
+    --success: #34d399;
+    --danger: #f87171;
+    --info: #60a5fa;
+}
+
+/* --- Принудительная светлая тема через кнопку (перебивает систему) --- */
+[data-theme="light"] {
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    
+    --bg-body: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    
+    --border: #e2e8f0;
+    --shadow: rgba(0, 0, 0, 0.05);
+    
+    --success: #10b981;
+    --danger: #ef4444;
+    --info: #3b82f6;
+}

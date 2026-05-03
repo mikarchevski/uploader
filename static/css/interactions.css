@@ -1,0 +1,400 @@
+/* interactions.css */
+
+/* --- Полноэкранная зона перетаскивания --- */
+.fullscreen-drop-zone {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 9999;
+    background: rgba(37, 99, 235, 0.1);
+    border: 4px dashed var(--primary);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.fullscreen-drop-zone.active {
+    display: flex;
+    pointer-events: auto;
+}
+
+.fullscreen-drop-zone .drop-message {
+    font-size: 2rem;
+    color: var(--primary);
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+/* --- Сортировка --- */
+.files-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.sort-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-sort {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 260px;
+    width: auto;
+    gap: 10px;
+    padding: 0.5rem 1rem;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text);
+    transition: 0.2s;
+    overflow: hidden;
+}
+
+.btn-sort:hover {
+    background: #f8fafc;
+    border-color: var(--primary);
+}
+
+.sort-icon-list { opacity: 0.7; flex-shrink: 0; }
+
+#btnSortText {
+    flex-grow: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+.sort-arrow {
+    opacity: 0.5;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+
+.sort-dropdown.active .sort-arrow {
+    transform: rotate(180deg);
+    opacity: 0.8;
+}
+
+.sort-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    width: 240px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border: 1px solid var(--border);
+    z-index: 1000;
+    padding: 0.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+
+.sort-menu.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.sort-menu.hidden { display: none !important; }
+
+.sort-group { padding: 0.5rem; }
+
+.sort-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    padding-left: 0.5rem;
+}
+
+.sort-option, .sort-order-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text);
+    transition: 0.1s;
+    white-space: nowrap;
+}
+
+.sort-option:hover, .sort-order-btn:hover { background: #f1f5f9; }
+
+.sort-option.active, .sort-order-btn.active {
+    background: #eff6ff;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.sort-option.active::before {
+    content: '✓';
+    margin-right: 8px;
+}
+
+.sort-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0.5rem;
+}
+
+
+.btn-close-small:hover { background: #e2e8f0; color: var(--text); }
+
+/* --- Модальное окно --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 20000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.modal-overlay.active { opacity: 1; visibility: visible; }
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    transform: scale(0.9);
+    transition: transform 0.2s ease;
+}
+
+.modal-overlay.active .modal-content { transform: scale(1); }
+
+.modal-content h3 { margin-top: 0; color: var(--text); }
+.modal-content p { color: var(--muted); margin-bottom: 1.5rem; word-break: break-word; }
+
+.modal-actions { display: flex; gap: 1rem; justify-content: center; }
+
+.btn-secondary {
+    background: #f1f5f9;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+}
+.btn-secondary:hover { background: #e2e8f0; }
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+}
+.btn-danger:hover { background: #dc2626; }
+
+/* Адаптивность для сортировки на мобильных */
+@media (max-width: 768px) {
+    .files-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .files-controls { width: 100%; justify-content: space-between; }
+    .sort-menu { right: auto; left: 0; width: 100%; }
+    .btn-sort { width: 100%; }
+}
+
+/* static/css/interactions.css */
+
+/* --- Панель управления файлом (Action Bar) --- */
+
+.file-action-bar {
+    position: fixed;
+    top: 0;
+    transform: translateY(-100%); /* Сдвигаем вверх, чтобы скрыть */
+    
+    /* Размеры для десктопа */
+    width: auto;
+    min-width: 600px; /* Минимальная ширина, чтобы кнопки не сплющивались */
+    width: 81%;   /* Не шире 90% экрана */
+    
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0 0 12px 12px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+}
+
+/* Активное состояние (видимое) */
+.file-action-bar.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0); /* Возвращаем на место по центру */
+}
+
+.file-action-bar.hidden { 
+    display: none !important; 
+}
+
+/* Контент внутри панели */
+.action-bar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 1200px; /* Ограничиваем ширину контента на очень больших экранах */
+    gap: 1.5rem;
+}
+
+/* Имя файла */
+.action-file-name {
+    flex: 1; /* Занимает всё свободное место */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text);
+    text-align: left;
+    min-width: 0; /* Важно для работы text-overflow во flex */
+}
+
+/* Группа кнопок */
+.action-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-shrink: 0; /* Кнопки не сжимаются */
+    align-items: center;
+}
+
+/* Общие стили кнопок в панели */
+.action-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.btn-download-small { background: var(--success); color: white; }
+.btn-download-small:hover { background: #059669; }
+
+.btn-copy-small { background: var(--info); color: white; }
+.btn-copy-small:hover { background: #2563eb; }
+
+.btn-delete-small { background: #ef4444; color: white; }
+.btn-delete-small:hover { background: #dc2626; }
+
+/* Кнопка закрытия (крестик) */
+.btn-close-small {
+    background: #f1f5f9;
+    color: var(--muted);
+    font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+.btn-close-small:hover { background: #e2e8f0; color: var(--text); }
+
+
+/* --- АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ (до 768px) --- */
+@media (max-width: 768px) {
+    .file-action-bar {
+        left: 0;
+        transform: translateY(-100%); /* Сброс центрирования */
+        width: 100%;
+        min-width: unset;
+        max-width: 100%;
+        border-radius: 0 0 16px 16px;
+        padding: 0.75rem 1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .file-action-bar.active {
+        transform: translateY(0);
+    }
+
+    .action-bar-content {
+        flex-direction: column; /* Вертикальная стопка */
+        gap: 0.5rem;
+        align-items: stretch;
+    }
+
+    .action-file-name {
+        text-align: center;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+        width: 100%;
+    }
+
+    .action-buttons {
+        width: 100%;
+        justify-content: space-between; /* Распределяем кнопки */
+        gap: 0.5rem;
+    }
+
+    .action-btn {
+        flex: 1; /* Кнопки растягиваются равномерно */
+        justify-content: center;
+        padding: 0.6rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Если кнопок много, можно скрыть текст и оставить иконки, но пока оставим так */
+}

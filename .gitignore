@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Flask / Session ---
+# Папка с сессиями, которую мы создавали в app.py
+flask_sessions/
+
+# --- База данных и Загрузки ---
+# Эти файлы слишком большие или содержат пользовательские данные
+/opt/filebrowser/data/uploads.db
+/opt/filebrowser/data/uploads/*
+# Если база лежит внутри проекта (на всякий случай)
+*.db
+*.sqlite3
+uploads/
+
+# --- Логи и ОС ---
+*.log
+.DS_Store
+Thumbs.db
+
+# --- IDE ---
+.vscode/
+.idea/

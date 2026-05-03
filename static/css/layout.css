@@ -1,0 +1,80 @@
+/* layout.css */
+
+/* --- Левая панель (Загрузка) --- */
+.sidebar {
+    width: 200px;
+    background: var(--bg-sidebar); /* <-- ВАЖНО: Переменная */
+    border-right: 1px solid var(--border);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 2px 0 10px var(--shadow); /* <-- Тень тоже через переменную */
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.sidebar h1 { font-size: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
+
+/* Скрываем старую зону в сайдбаре, но оставляем её функциональной через JS */
+.sidebar .drop-zone {
+    opacity: 0.7;
+    cursor: default;
+}
+
+/* Глобальные стили для тела страницы */
+body {
+    background-color: var(--bg-body); /* Используем переменную */
+    color: var(--text-main);          /* Используем переменную */
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease; /* Плавный переход темы */
+}
+
+/* --- Правая часть (Список файлов) --- */
+.main-content {
+    display: block;
+    margin-left: 300px; 
+    width: calc(100% - 300px);
+    padding: 6rem 2rem 2rem 2rem;
+    min-height: 100vh;
+    box-sizing: border-box;
+    position: relative;
+    background-color: var(--bg-body); /* <-- Явный фон */
+    transition: background-color 0.3s ease;
+}
+
+.files-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    /* Убрал margin-top: 80px, так как он может создавать лишнюю пустоту сверху, 
+       если только это не было задумано для компенсации чего-то */
+    margin-top: 0; 
+}
+.files-header h2 { font-size: 1.8rem; }
+.file-count { color: var(--muted); font-size: 0.9rem; }
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    body { flex-direction: column; }
+    .sidebar { 
+        width: 100%; 
+        max-width: none; 
+        position: relative; 
+        border-right: none; 
+        border-bottom: 1px solid var(--border);
+        padding: 1.5rem;
+        height: auto; /* На мобильных высота авто */
+    }
+    .main-content { 
+        margin-left: 0; 
+        width: 100%; 
+        padding: 1.5rem;
+    }
+}

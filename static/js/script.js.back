@@ -1,0 +1,426 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Получаем элементы DOM ---
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const status = document.getElementById('status');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const resultBox = document.getElementById('resultBox');
+    const resultTitle = document.getElementById('resultTitle');
+    const downloadLink = document.getElementById('downloadLink');
+    const copyBtn = document.getElementById('copyBtn');
+    
+    // Элементы для списка файлов
+    const filesListContainer = document.getElementById('filesListContainer');
+    const fileCountLabel = document.getElementById('fileCount');
+
+    // Элементы для полноэкранного дропа
+    const fullscreenDropZone = document.getElementById('fullscreenDropZone');
+
+    // Элементы для уведомления о загрузке
+    const notifCloseBtn = document.getElementById('notifCloseBtn');
+
+    let currentFile = null;
+    
+    // --- Очередь для множественной загрузки ---
+    let uploadQueue = [];
+    let isUploading = false;
+
+    // --- Функции для работы со списком файлов ---
+
+    function updateFileCount(count) {
+        if (!fileCountLabel) return;
+        const word = count === 1 ? 'файл' : (count >= 2 && count <= 4 ? 'файла' : 'файлов');
+        fileCountLabel.textContent = `${count} ${word}`;
+    }
+
+    function getIconForFile(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) return '🖼️';
+        if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) return '🎬';
+        if (['mp3', 'wav', 'flac', 'ogg'].includes(ext)) return '🎵';
+        if (['pdf'].includes(ext)) return '📄';
+        if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
+        if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) return '📝';
+        return '📁';
+    }
+
+    // Загружаем ВСЕ файлы с сервера при старте
+    async function loadAllFiles() {
+        try {
+            filesListContainer.innerHTML = '';
+            filesListContainer.classList.add('loading');
+            
+            const loaderHtml = `
+                <div class="spinner-wrapper">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Загрузка...</div>
+                </div>
+            `;
+            filesListContainer.innerHTML = loaderHtml;
+
+            const response = await fetch('/api/files');
+            const data = await response.json();
+
+            if (data.error) {
+                console.error(data.error);
+                filesListContainer.innerHTML = `<p class="no-files" style="grid-column: 1/-1; text-align: center;">Ошибка: ${data.error}</p>`;
+                filesListContainer.classList.remove('loading');
+                return;
+            }
+
+            const files = data.files || [];
+            
+            if (files.length > 0) {
+                renderFilesGrid(files);
+                updateFileCount(files.length);
+            } else {
+                filesListContainer.innerHTML = '<p class="no-files" style="grid-column: 1/-1; text-align: center;">Пока нет загруженных файлов.</p>';
+                updateFileCount(0);
+            }
+            
+            filesListContainer.classList.remove('loading');
+
+        } catch (error) {
+            console.error('Error fetching files:', error);
+            filesListContainer.innerHTML = '<p class="no-files" style="grid-column: 1/-1; text-align: center;">Не удалось загрузить список.</p>';
+            filesListContainer.classList.remove('loading');
+        }
+    }
+
+    // Отрисовка сетки файлов (с превью)
+    async function renderFilesGrid(files) {
+        if (!files || files.length === 0) return;
+
+        let gridHtml = '';
+
+        for (const file of files) {
+            const icon = getIconForFile(file.filename);
+            
+            // Пытаемся получить превью
+            let previewHtml = `<div class="file-icon">${icon}</div>`;
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000); 
+                
+                const res = await fetch(`/api/preview/${file.short_id}`, { signal: controller.signal });
+                clearTimeout(timeoutId); 
+                
+                const data = await res.json();
+                if (data.has_preview && data.preview) {
+                    previewHtml = `<img src="${data.preview}" alt="preview" class="file-preview-img" loading="lazy">`;
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    console.warn("Ошибка загрузки превью для", file.filename, e);
+                }
+            }
+
+            gridHtml += `
+                <div class="file-card" data-short-id="${file.short_id}">
+                    ${previewHtml}
+                    <div class="file-details">
+                        <div class="file-card-name" title="${file.filename}">${file.filename}</div>
+                        <div class="file-card-meta">
+                            <span>${file.size}</span>
+                            <span>⬇ ${file.downloads}</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="${file.url}" class="action-btn btn-download" download>Скачать</a>
+                        <button class="action-btn btn-copy" onclick="window.copyToClipboard('${file.url}')">Копировать ссылку</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        filesListContainer.innerHTML = gridHtml;
+        filesListContainer.classList.remove('loading');
+    }
+
+    // Добавление одного нового файла в сетку (после загрузки)
+    async function addFileToGrid(fileData) {
+        // Удаляем сообщение "нет файлов", если оно есть
+        const noFilesMsg = filesListContainer.querySelector('.no-files');
+        if (noFilesMsg) noFilesMsg.remove();
+
+        const icon = getIconForFile(fileData.filename); 
+        
+        let previewHtml = `<div class="file-icon">${icon}</div>`;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const res = await fetch(`/api/preview/${fileData.short_id}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+             
+            const data = await res.json();
+            if (data.has_preview && data.preview) {
+                previewHtml = `<img src="${data.preview}" alt="preview" class="file-preview-img" loading="lazy">`;
+            }
+        } catch (e) {
+            if (e.name !== 'AbortError') console.error(e);
+        }
+
+        const newCard = document.createElement('div');
+        newCard.className = 'file-card';
+        newCard.setAttribute('data-short-id', fileData.short_id);
+        newCard.innerHTML = `
+            ${previewHtml}
+            <div class="file-details">
+                <div class="file-card-name" title="${fileData.filename}">${fileData.filename}</div>
+                <div class="file-card-meta">
+                    <span>${fileData.size}</span>
+                    <span>⬇ ${fileData.downloads}</span>
+                </div>
+            </div>
+            <div class="file-actions">
+                <a href="${fileData.url}" class="action-btn btn-download" download>Скачать</a>
+                <button class="action-btn btn-copy" onclick="window.copyToClipboard('${fileData.url}')">Копировать ссылку</button>
+            </div>
+        `;
+        
+        // Вставляем в начало списка
+        filesListContainer.insertBefore(newCard, filesListContainer.firstChild);
+        
+        const currentCount = parseInt(fileCountLabel.textContent) || 0;
+        updateFileCount(currentCount + 1);
+    }
+
+    // Глобальная функция копирования
+    window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Ссылка скопирована!');
+        }).catch(err => {
+            console.error('Ошибка копирования: ', err);
+        });
+    };
+
+    // --- Логика очереди загрузок ---
+
+    function addToUploadQueue(filesArray) {
+        // Добавляем новые файлы в конец очереди
+        uploadQueue.push(...filesArray);
+        
+        // Если загрузка не идет, запускаем процесс
+        if (!isUploading) {
+            processUploadQueue();
+        }
+    }
+
+    async function processUploadQueue() {
+        if (uploadQueue.length === 0) {
+            isUploading = false;
+            return;
+        }
+
+        isUploading = true;
+        const file = uploadQueue.shift(); // Берем первый файл из очереди
+        
+        try {
+            await startUpload(file); // Ждем завершения загрузки текущего файла
+        } catch (err) {
+            console.error("Ошибка при загрузке файла:", file.name, err);
+        }
+
+        // Небольшая пауза перед следующим файлом для стабильности
+        setTimeout(() => {
+            processUploadQueue();
+        }, 500);
+    }
+
+    // --- Основная логика загрузки ---
+
+    // Клик по кнопке "Выбрать файл"
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+            if (!currentFile) {
+                fileInput.click(); 
+            } else {
+                // Если файл уже выбран через кнопку, но мы хотим поддержать множественный выбор через input,
+                // то лучше полагаться на событие change. 
+                // Здесь просто ничего не делаем, так как change сработает сам.
+            }
+        });
+    }
+
+    // Выбор файла через проводник (поддержка множественного выбора)
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                addToUploadQueue(Array.from(e.target.files));
+                // Сбрасываем value, чтобы можно было выбрать те же файлы снова
+                e.target.value = ''; 
+            }
+        });
+    }
+
+    // Полноэкранная зона перетаскивания
+    ['dragenter', 'dragover'].forEach(evt => {
+        document.body.addEventListener(evt, (e) => { 
+            e.preventDefault(); 
+            if (fullscreenDropZone) fullscreenDropZone.classList.add('active'); 
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        document.body.addEventListener(evt, (e) => { 
+            e.preventDefault(); 
+            if (fullscreenDropZone) fullscreenDropZone.classList.remove('active'); 
+        });
+    });
+
+    // Обработка сброса файла (ИСПРАВЛЕНО: берем ВСЕ файлы)
+    document.body.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length > 0) {
+            // Преобразуем FileList в массив и добавляем все файлы в очередь
+            addToUploadQueue(Array.from(e.dataTransfer.files)); 
+        }
+    });
+
+    function handleFile(file) {
+        if (!file) return;
+        // Эта функция теперь используется внутри очереди, а не напрямую из событий
+        // Но оставим её для совместимости, если где-то вызывается явно
+        addToUploadQueue([file]);
+    }
+
+    async function startUpload(file) {
+        try {
+            showUploadNotification(file.name, formatBytes(file.size), 'Подготовка...', false, true);
+            
+            const hash = await computeFileHash(file);
+            
+            updateNotificationMessage('Проверка на сервере...');
+
+            const checkRes = await fetch(`/check?h=${hash}`);
+            const checkData = await checkRes.json();
+
+            if (checkData.exists) {
+                showUploadNotification(file.name, formatBytes(file.size), 'Файл уже существует!', true);
+                // Даже если файл существует, считаем это успехом для очереди
+                return; 
+            }
+
+            updateNotificationMessage('Загрузка...');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('hash', hash);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload');
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    updateProgress(pct);
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    if (res.success || res.url) {
+                        showUploadNotification(file.name, formatBytes(file.size), '✅ Успешно!', true);
+                        
+                        if (res.file_data) {
+                            addFileToGrid(res.file_data);
+                        }
+                        
+                        // Автозакрытие через 5 секунд после успеха
+                        setTimeout(hideUploadNotification, 5000); 
+                    } else {
+                        showUploadNotification(file.name, formatBytes(file.size), '❌ Ошибка: ' + (res.error || 'Неизвестная ошибка'), false);
+                    }
+                } else {
+                    showUploadNotification(file.name, formatBytes(file.size), '❌ Ошибка загрузки (HTTP ' + xhr.status + ')', false);
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                showUploadNotification(file.name, formatBytes(file.size), '❌ Ошибка сети', false);
+            });
+
+            xhr.send(formData);
+
+        } catch (err) {
+            showUploadNotification(file.name, formatBytes(file.size), '❌ Ошибка: ' + err.message, false);
+        }
+    }
+
+    async function computeFileHash(file) {
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // --- Управление всплывающим окном ---
+
+    function showUploadNotification(filename, filesize, message, isSuccess = false, isUploading = false) {
+        const notification = document.getElementById('uploadNotification');
+        if (!notification) return;
+
+        const notifFilename = document.getElementById('notifFilename');
+        const notifFilesize = document.getElementById('notifFilesize');
+        const notifMessage = document.getElementById('notifMessage');
+        const notifProgress = document.getElementById('notifProgress');
+
+        if (notifFilename) notifFilename.textContent = filename;
+        if (notifFilesize) notifFilesize.textContent = filesize;
+        if (notifMessage) notifMessage.textContent = message;
+        
+        if (isSuccess) {
+            notification.classList.add('success');
+            if (notifProgress) notifProgress.style.display = 'none';
+        } else if (isUploading) {
+            notification.classList.remove('success');
+            if (notifProgress) notifProgress.style.display = 'block';
+        } else {
+            notification.classList.remove('success');
+            if (notifProgress) notifProgress.style.display = 'none';
+        }
+
+        notification.classList.add('show');
+    }
+
+    function hideUploadNotification() {
+        const notification = document.getElementById('uploadNotification');
+        if (notification) notification.classList.remove('show');
+    }
+
+    function updateProgress(percent) {
+        const progressBar = document.getElementById('notifProgressBar');
+        if (progressBar) progressBar.style.width = percent + '%';
+    }
+
+    function updateNotificationMessage(message) {
+        const notifMessage = document.getElementById('notifMessage');
+        if (notifMessage) {
+            notifMessage.textContent = message;
+        }
+    }
+
+    if (notifCloseBtn) {
+        notifCloseBtn.addEventListener('click', hideUploadNotification);
+    }
+
+    // --- Инициализация ---
+
+    // Загружаем все файлы при старте страницы
+    loadAllFiles();
+});
+
+// Вспомогательная функция вне DOMContentLoaded
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}

@@ -1,0 +1,8 @@
+/* style.css */
+@import 'variables.css';
+@import 'layout.css';
+@import 'components.css';
+@import 'file-grid.css';
+@import 'uploads.css';
+@import 'interactions.css';
+@import 'dark-theme.css';

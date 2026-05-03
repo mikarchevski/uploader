@@ -1,0 +1,222 @@
+/* static/css/dark-theme.css */
+
+/* --- Глобальные переменные для темной темы --- */
+[data-theme="dark"] {
+    --primary: #60a5fa;
+    --primary-hover: #3b82f6;
+    
+    --bg-body: #0f172a;
+    --bg-card: #1e293b;
+    --bg-sidebar: #1e293b;
+    
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    
+    --border: #334155;
+    --shadow: rgba(0, 0, 0, 0.3);
+    
+    --success: #34d399;
+    --danger: #f87171;
+    --info: #60a5fa;
+}
+
+/* --- Компоненты: Кнопка сортировки --- */
+[data-theme="dark"] .btn-sort {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .btn-sort:hover {
+    background-color: var(--border);
+    border-color: var(--primary);
+}
+
+/* --- Компоненты: Меню сортировки и пользователя --- */
+[data-theme="dark"] .sort-menu,
+[data-theme="dark"] .user-dropdown {
+    background-color: var(--bg-card);
+    border-color: var(--border);
+    color: var(--text-main);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .sort-option,
+[data-theme="dark"] .sort-order-btn,
+[data-theme="dark"] .dropdown-item {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .sort-option:hover,
+[data-theme="dark"] .sort-order-btn:hover,
+[data-theme="dark"] .dropdown-item:hover {
+    background-color: var(--border);
+}
+
+[data-theme="dark"] .sort-option.active,
+[data-theme="dark"] .sort-order-btn.active,
+[data-theme="dark"] .dropdown-item.active {
+    background-color: rgba(96, 165, 250, 0.15);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .sort-divider {
+    background-color: var(--border);
+}
+
+[data-theme="dark"] .sort-label {
+    color: var(--text-muted);
+}
+
+/* --- Компоненты: Карточка файла (выделение) --- */
+[data-theme="dark"] .file-card.selected {
+    background-color: rgba(96, 165, 250, 0.15) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px var(--primary) !important;
+}
+
+[data-theme="dark"] .file-card.selected:hover {
+    background-color: rgba(96, 165, 250, 0.25) !important;
+}
+
+/* --- Компоненты: Панель действий (Action Bar) --- */
+[data-theme="dark"] .file-action-bar {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .action-file-name {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .btn-close-small {
+    background-color: var(--border);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-close-small:hover {
+    background-color: #475569;
+    color: var(--text-main);
+}
+
+/* --- Компоненты: Кнопка пользователя --- */
+[data-theme="dark"] .user-menu-btn {
+    background-color: var(--bg-card);
+    border-color: var(--border);
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .user-menu-btn:hover {
+    background-color: var(--border);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* --- Компоненты: Аватар в меню --- */
+[data-theme="dark"] .dropdown-avatar {
+    background-color: rgba(96, 165, 250, 0.15);
+    color: var(--primary);
+}
+
+/* --- Компоненты: Зона загрузки (Drop Zone) --- */
+[data-theme="dark"] .drop-zone {
+    background: #1e293b;
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .drop-zone:hover, 
+[data-theme="dark"] .drop-zone.active {
+    border-color: var(--primary);
+    background: rgba(96, 165, 250, 0.1);
+}
+
+/* --- Компоненты: Информация о файле в сайдбаре --- */
+[data-theme="dark"] .file-info {
+    background: #334155;
+}
+
+/* --- Компоненты: Результат загрузки --- */
+[data-theme="dark"] .result {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+[data-theme="dark"] .result-title {
+    color: var(--success);
+}
+
+/* --- Компоненты: Кнопки действий в карточке --- */
+[data-theme="dark"] .btn-copy {
+    background: #334155;
+    color: var(--text-main);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .btn-copy:hover {
+    background: #475569;
+}
+
+/* --- Модальные окна --- */
+[data-theme="dark"] .modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .modal-content h3 {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .modal-content p {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-secondary {
+    background: #334155;
+    color: var(--text-main);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: #475569;
+}
+
+/* --- Полноэкранная зона перетаскивания --- */
+[data-theme="dark"] .fullscreen-drop-zone .drop-message {
+    background: var(--bg-card);
+    color: var(--text-main);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+/* --- Уведомления о загрузке --- */
+[data-theme="dark"] .upload-manager {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+[data-theme="dark"] .manager-header {
+    background: #334155;
+    border-bottom-color: var(--border);
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .close-btn {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .close-btn:hover {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .upload-item {
+    background: #334155;
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .item-status {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .progress-bg {
+    background: #475569;
+}
