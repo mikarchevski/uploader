@@ -1,6 +1,7 @@
 from flask import request, jsonify, send_file, render_template, url_for, session, redirect, current_app
 import os
 import sqlite3
+import logging
 from .config import UPLOAD_FOLDER, DB_PATH
 from .database import (
     get_file_by_hash, 
@@ -11,7 +12,8 @@ from .database import (
     get_user_by_username,
     create_user,
     verify_password,
-    delete_file_by_short_id
+    delete_file_by_short_id,
+    get_files_by_hash
 )
 from .utils import generate_short_id, format_file_size, compute_file_hash
 from .preview import get_preview_data
@@ -195,42 +197,88 @@ def register_routes(app):
             if file_data.get('owner_id') != user_id:
                 return jsonify({'error': 'Access denied'}), 403
             
-            filepath = os.path.join(UPLOAD_FOLDER, file_data['unique_name'])
-            if os.path.exists(filepath):
-                os.remove(filepath)
+            file_hash = file_data['file_hash']
+            unique_name = file_data['unique_name']
+            filepath = os.path.join(UPLOAD_FOLDER, unique_name)
             
+            # Сначала удаляем запись из БД
             delete_file_by_short_id(short_id)
+            
+            # Проверяем, есть ли еще записи с таким же хешем
+            remaining_files = get_files_by_hash(file_hash)
+            
+            # Если записей больше нет - удаляем физический файл
+            if len(remaining_files) == 0:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    logging.getLogger(__name__).info(f"[DELETE] Physical file removed: {unique_name}")
+            else:
+                logging.getLogger(__name__).info(f"[DELETE] File still referenced by {len(remaining_files)} other records. Keeping physical file.")
                 
             return jsonify({'success': True}), 200
         except Exception as e:
             print(f"Error deleting file: {e}")
+            import traceback
+            print(traceback.format_exc())
             return jsonify({'error': str(e)}), 500
     
     @app.route('/check', methods=['GET'])
     @login_required
     def check_file():
+        logger = logging.getLogger(__name__)
         try:
             file_hash = request.args.get('h')
+            current_user_id = session.get('user_id')
+            
+            logger.info(f"[CHECK] Hash: {file_hash[:10] if file_hash else 'None'}... User: {current_user_id}")
+            
             if not file_hash or len(file_hash) != 64:
+                logger.info("[CHECK] Invalid hash format")
                 return jsonify({'exists': False}), 200
 
             existing = get_file_by_hash(file_hash)
             if existing:
-                url = f"https://{request.host}/d/{existing['short_id']}"
-                return jsonify({'exists': True, 'url': url}), 200
+                owner_id = existing.get('owner_id')
+                is_owner = (owner_id == current_user_id)
+                
+                logger.info(f"[CHECK] File found! Owner: {owner_id}, Current User: {current_user_id}, Is Owner: {is_owner}")
+                
+                if is_owner:
+                    # Файл принадлежит текущему пользователю
+                    url = f"https://{request.host}/d/{existing['short_id']}"
+                    logger.info(f"[CHECK] Returning owned file URL: {url}")
+                    return jsonify({'exists': True, 'url': url, 'owned': True}), 200
+                else:
+                    # Файл есть на сервере, но принадлежит другому пользователю
+                    logger.info(f"[CHECK] File exists but owned by another user. Will need to create new reference.")
+                    return jsonify({'exists': True, 'owned': False}), 200
             
+            logger.info("[CHECK] File not found in database")
             return jsonify({'exists': False}), 200
         except Exception as e:
+            logger.error(f"[CHECK] Error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return jsonify({'exists': False, 'error': str(e)}), 200
+# ... existing code ...
 
     @app.route('/upload', methods=['POST'])
     @login_required
     def upload_file():
-        import time
-        start_time = time.time()
-        print(f"[{start_time}] НАЧАЛО ЗАГРУЗКИ")
+        logger = logging.getLogger(__name__)
         
-        filepath = None
+        current_user_id = session.get('user_id')
+        current_username = session.get('username')
+        
+        logger.info(f"\n{'='*40}")
+        logger.info(f"[UPLOAD] START")
+        logger.info(f"[UPLOAD] Current User ID: {current_user_id}")
+        logger.info(f"[UPLOAD] Current Username: {current_username}")
+        
+        if not current_user_id:
+            logger.error("[UPLOAD] ERROR: No user ID in session!")
+            return jsonify({'error': 'Not authorized'}), 401
+
         try:
             if 'file' not in request.files:
                 return jsonify({'error': 'No file provided'}), 400
@@ -239,106 +287,148 @@ def register_routes(app):
             if file.filename == '':
                 return jsonify({'error': 'Empty filename'}), 400
 
-            t1 = time.time()
+            # 1. Получаем хеш
             file_hash = request.form.get('hash')
-            
-            # Если хеш не предоставлен клиентом, вычисляем на сервере (это медленно!)
             if not file_hash or len(file_hash) != 64:
-                print(f"[{time.time()}] Хеш не получен, вычисляю на сервере...")
+                logger.info("[UPLOAD] Hash missing, computing...")
                 file_hash = compute_file_hash(file)
                 file.seek(0)
-                print(f"[{time.time()}] Хеш вычислен за {time.time() - t1:.2f} сек")
             else:
-                print(f"[{time.time()}] Хеш получен от клиента")
-                file.seek(0)
+                logger.info(f"[UPLOAD] Hash received: {file_hash[:10]}...")
             
-            t2 = time.time()
+            # 2. Ищем файл по хешу
             existing = get_file_by_hash(file_hash)
-            print(f"[{time.time()}] Проверка в БД за {time.time() - t2:.2f} сек")
             
-            # Получаем ID текущего пользователя из сессии
-            current_user_id = session.get('user_id')
-
-            # Если файл уже существует в БД
             if existing:
-                print(f"[{time.time()}] Файл уже существует в БД")
-                if existing.get('owner_id') == current_user_id:
+                existing_owner_id = existing.get('owner_id')
+                existing_short_id = existing.get('short_id')
+                
+                logger.info(f"[UPLOAD] File FOUND in DB.")
+                logger.info(f"[UPLOAD] Existing Owner ID: {existing_owner_id}")
+                logger.info(f"[UPLOAD] Existing Short ID: {existing_short_id}")
+                
+                # СРАВНЕНИЕ
+                if existing_owner_id == current_user_id:
+                    logger.info("[UPLOAD] Case A: File belongs to CURRENT user. Returning existing link.")
                     return jsonify({
-                        'url': url_for('download_short', short_id=existing['short_id'], _external=True),
                         'success': True,
-                        'message': 'File already exists'
-                    }), 200
-                else:
-                    # Файл есть у другого пользователя. 
-                    # Мы не копируем файл на диск, а создаем новую запись в БД,
-                    # указывающую на тот же unique_name.
-                    
-                    unique_name = existing['unique_name']
-                    file_size = existing['file_size']
-                    
-                    # Генерируем новый short_id для этого пользователя
-                    short_id = generate_short_id(6)
-                    
-                    # Так как мы убрали UNIQUE с unique_name и file_hash, 
-                    # конфликт может быть только по short_id (крайне редко).
-                    # Делаем простую попытку вставки.
-                    try:
-                        insert_file(short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id)
-                    except sqlite3.IntegrityError:
-                        # Если short_id совпал (невероятно), пробуем еще раз
-                        while True:
-                            short_id = generate_short_id(6)
-                            try:
-                                insert_file(short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id)
-                                break
-                            except sqlite3.IntegrityError:
-                                continue
-
-                    url = url_for('download_short', short_id=short_id, _external=True)
-                    
-                    print(f"[{time.time()}] Дубликат создан для другого пользователя. ShortID: {short_id}")
-
-                    return jsonify({
-                        'url': url, 
-                        'success': True,
+                        'message': 'File already exists',
                         'file_data': {
-                            'short_id': short_id,
-                            'filename': file.filename,
-                            'size': format_file_size(file_size),
-                            'date': datetime.now().strftime('%Y-%m-%d'),
-                            'downloads': 0,
-                            'url': url
+                            'short_id': existing_short_id,
+                            'filename': existing['original_filename'],
+                            'size': format_file_size(existing['file_size']),
+                            'date': existing['upload_date'][:10],
+                            'downloads': existing.get('download_count', 0),
+                            'url': url_for('download_short', short_id=existing_short_id, _external=True)
                         }
                     }), 200
 
-            # --- Если файла нет в БД вообще ---
-            print(f"[{time.time()}] Файл новый, сохраняю на диск...")
+                else:
+                    logger.info(f"[UPLOAD] Case B: File belongs to OTHER user ({existing_owner_id}). Creating new reference for User {current_user_id}.")
+                    
+                    # Используем существующий unique_name (файл уже на диске)
+                    unique_name = existing['unique_name']
+                    file_size = existing['file_size']
+                    
+                    # Генерируем УНИКАЛЬНЫЙ short_id с проверкой
+                    max_attempts = 10
+                    new_short_id = None
+                    
+                    for attempt in range(max_attempts):
+                        candidate_id = generate_short_id(6)
+                        # Проверяем, не занят ли этот ID
+                        if not get_file_by_short_id(candidate_id):
+                            new_short_id = candidate_id
+                            logger.info(f"[UPLOAD] Generated unique ShortID: {new_short_id} (attempt {attempt + 1})")
+                            break
+                    
+                    if not new_short_id:
+                        logger.error("[UPLOAD] Failed to generate unique short_id after multiple attempts")
+                        return jsonify({'error': 'Could not generate unique ID'}), 500
+                    
+                    logger.info(f"[UPLOAD] Attempting to insert new record: ShortID={new_short_id}, Owner={current_user_id}, UniqueName={unique_name}")
+                    
+                    try:
+                        # ВАЖНО: Используем тот же unique_name, файл уже на диске!
+                        insert_file(new_short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id)
+                        logger.info(f"[UPLOAD] SUCCESS: New record inserted!")
+                        
+                        # ПРОВЕРКА
+                        verify_record = get_file_by_short_id(new_short_id)
+                        if verify_record:
+                            logger.info(f"[UPLOAD] VERIFICATION OK: Record found with owner_id={verify_record.get('owner_id')}")
+                        else:
+                            logger.error(f"[UPLOAD] VERIFICATION FAILED: Record NOT found in DB!")
+
+                        return jsonify({
+                            'success': True,
+                            'file_data': {
+                                'short_id': new_short_id,
+                                'filename': file.filename,
+                                'size': format_file_size(file_size),
+                                'date': datetime.now().strftime('%Y-%m-%d'),
+                                'downloads': 0,
+                                'url': url_for('download_short', short_id=new_short_id, _external=True)
+                            }
+                        }), 200
+                    except Exception as e:
+                        # Проверяем, не ошибка ли это дубликата
+                        if 'UNIQUE constraint failed' in str(e) or 'duplicate' in str(e).lower():
+                            logger.warning(f"[UPLOAD] Race condition detected: {e}")
+                            # Повторно ищем файл по хешу - возможно, другой поток уже добавил его
+                            retry_existing = get_file_by_hash(file_hash)
+                            if retry_existing and retry_existing.get('owner_id') == current_user_id:
+                                logger.info(f"[UPLOAD] Retry success: Found file owned by current user")
+                                return jsonify({
+                                    'success': True,
+                                    'message': 'File already exists',
+                                    'file_data': {
+                                        'short_id': retry_existing['short_id'],
+                                        'filename': retry_existing['original_filename'],
+                                        'size': format_file_size(retry_existing['file_size']),
+                                        'date': retry_existing['upload_date'][:10],
+                                        'downloads': retry_existing.get('download_count', 0),
+                                        'url': url_for('download_short', short_id=retry_existing['short_id'], _external=True)
+                                    }
+                                }), 200
+                        
+                        logger.error(f"[UPLOAD] DB INSERT FAILED: {e}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        return jsonify({'error': 'Database error'}), 500
+
+# ... existing code ...
+
+            # 3. Файла нет в БД - новая загрузка
+            logger.info("[UPLOAD] Case C: New file. Saving to disk.")
+            
+            # Генерируем уникальный short_id с проверкой
+            max_attempts = 10
+            short_id = None
+            
+            for attempt in range(max_attempts):
+                candidate_id = generate_short_id(6)
+                if not get_file_by_short_id(candidate_id):
+                    short_id = candidate_id
+                    logger.info(f"[UPLOAD] Generated unique ShortID: {short_id} (attempt {attempt + 1})")
+                    break
+            
+            if not short_id:
+                logger.error("[UPLOAD] Failed to generate unique short_id for new file")
+                return jsonify({'error': 'Could not generate unique ID'}), 500
+            
             ext = os.path.splitext(file.filename)[1]
             unique_name = f"{uuid.uuid4().hex}{ext}"
             filepath = os.path.join(UPLOAD_FOLDER, unique_name)
             
-            t4 = time.time()
             file.save(filepath)
-            print(f"[{time.time()}] Сохранение на диск за {time.time() - t4:.2f} сек")
-            
             file_size = os.path.getsize(filepath)
             
-            t5 = time.time()
-            while True:
-                short_id = generate_short_id(6)
-                try:
-                    insert_file(short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id)
-                    break
-                except sqlite3.IntegrityError:
-                    continue 
-            print(f"[{time.time()}] Запись в БД за {time.time() - t5:.2f} сек")
+            insert_file(short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id)
+            
+            logger.info(f"[UPLOAD] New file saved. ShortID: {short_id}")
 
-            url = url_for('download_short', short_id=short_id, _external=True)
-            
-            print(f"[{time.time()}] ЗАГРУЗКА ЗАВЕРШЕНА. Всего: {time.time() - start_time:.2f} сек")
-            
             return jsonify({
-                'url': url, 
                 'success': True,
                 'file_data': {
                     'short_id': short_id,
@@ -346,17 +436,18 @@ def register_routes(app):
                     'size': format_file_size(file_size),
                     'date': datetime.now().strftime('%Y-%m-%d'),
                     'downloads': 0,
-                    'url': url
+                    'url': url_for('download_short', short_id=short_id, _external=True)
                 }
             }), 200
-            
+
         except Exception as e:
-            print(f"Upload error: {e}")
+            logger.error(f"[UPLOAD] Critical Error: {e}")
             import traceback
-            traceback.print_exc()
-            if filepath and os.path.exists(filepath):
-                os.remove(filepath)
-            return jsonify({'error': 'Internal server error'}), 500
+            logger.error(traceback.format_exc())
+            return jsonify({'error': 'Internal Server Error'}), 500
+
+# ... existing code ...
+# ... existing code ...
 
     @app.route('/d/<short_id>')
     def download_short(short_id):

@@ -9,11 +9,8 @@ import os
 def generate_short_id(length=6):
     """Генерирует уникальный короткий ID."""
     chars = string.ascii_letters + string.digits
-    while True:
-        short_id = ''.join(random.choice(chars) for _ in range(length))
-        # Здесь можно добавить проверку на уникальность в БД, 
-        # но для простоты оставим как есть, так как коллизии крайне редки
-        return short_id
+    short_id = ''.join(random.choice(chars) for _ in range(length))
+    return short_id
 
 def format_file_size(size_bytes):
     """Форматирует размер файла в читаемый вид."""

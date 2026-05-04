@@ -1,9 +1,22 @@
 # app.py
 import sys
 import os
+import logging
 from datetime import timedelta
 from flask import Flask
 from flask_session import Session
+from flask_cors import CORS
+
+# --- НАЧАЛО БЛОКА ЛОГИРОВАНИЯ ---
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flask_debug.log')
+logging.basicConfig(
+    filename=log_file_path,
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+logger.info("--- FLASK SERVER RESTARTED & LOGGING INITIALIZED ---")
+# --- КОНЕЦ БЛОКА ЛОГИРОВАНИЯ ---
 
 # Добавляем текущую директорию в пути, чтобы Python видел пакет backend
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -15,8 +28,11 @@ from backend import create_app as backend_create_app
 def create_app():
     # 1. Создаем базовое приложение (маршруты, БД) через фабрику из backend
     app = backend_create_app()
+    # Разрешаем запросы с любых источников (для разработки)
+    # В продакшене лучше указать конкретный домен или IP
+    CORS(app, supports_credentials=True)
     
-       # --- НАСТРОЙКИ СЕССИЙ (Исправление проблемы с выходом из аккаунта) ---
+    # --- НАСТРОЙКИ СЕССИЙ (Исправление проблемы с выходом из аккаунта) ---
     
     # 1. Тип хранения: файловая система
     app.config['SESSION_TYPE'] = 'filesystem'

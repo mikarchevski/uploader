@@ -121,10 +121,7 @@ export class UploadManager {
                 const el = itemEl.querySelector('.item-status');
                 if (el) el.textContent = '⛔ Отменено';
                 cancelBtn.style.display = 'none';
-                // Опционально: можно автоматически удалять элемент через пару секунд
-                // setTimeout(() => itemEl.remove(), 2000);
             },
-            // Метод для немедленного удаления из UI
             remove: () => {
                 itemEl.remove();
             }
@@ -171,66 +168,93 @@ export class UploadManager {
     }
 
     async startUpload(queueItem) {
-        const { file, uiItem } = queueItem;
-
         return new Promise((resolve, reject) => {
-            // Обработчик отмены
-            const cancelHandler = () => {
-                queueItem.cancelled = true;
-                if (queueItem.xhr) {
-                    queueItem.xhr.abort();
-                }
-                reject(new Error('Cancelled'));
-            };
+            const file = queueItem.file;
+            const uiItem = queueItem.uiItem;
             
+            if (!uiItem) {
+                reject(new Error('UI item not found'));
+                return;
+            }
+
             const cancelBtn = uiItem.element.querySelector('.cancel-btn');
-            cancelBtn.onclick = cancelHandler;
 
-            // Этап 1: Хеш
-            uiItem.setStatus('Вычисление хеша...');
-            uiItem.setProgress(10);
-
-            computeFileHash(file).then(hash => {
-                if (queueItem.cancelled) {
-                    reject(new Error('Cancelled'));
-                    return;
-                }
-
-                uiItem.setStatus('Проверка...');
-                uiItem.setProgress(30);
-
-                checkFileExists(hash).then(checkData => {
-                    if (queueItem.cancelled) {
-                        reject(new Error('Cancelled'));
-                        return;
+            (async () => {
+                try {
+                    if (queueItem.cancelled) { 
+                        reject(new Error('Cancelled')); 
+                        return; 
                     }
 
-                    if (checkData.exists) {
+                    uiItem.setStatus('Вычисление хеша...');
+                    uiItem.setProgress(10);
+
+                    const hash = await computeFileHash(file);
+                    
+                    if (queueItem.cancelled) { 
+                        reject(new Error('Cancelled')); 
+                        return; 
+                    }
+
+                    uiItem.setStatus('Проверка...');
+                    uiItem.setProgress(30);
+
+                    const checkData = await checkFileExists(hash);
+                    
+                    if (queueItem.cancelled) { 
+                        reject(new Error('Cancelled')); 
+                        return; 
+                    }
+
+                    // Если файл существует И принадлежит текущему пользователю
+                    if (checkData.exists && checkData.owned) {
                         uiItem.setSuccess();
-                        // Даже если файл существует, мы можем захотеть добавить его в список, 
-                        // но обычно checkFileExists возвращает true, если файл уже есть у пользователя.
-                        // Если вы хотите, чтобы он появился в списке, вызовите onUploadComplete здесь.
-                        // Но так как файл уже был загружен ранее, он уже должен быть в списке.
+                        
+                        // Вариант А: Сервер вернул полные данные
+                        if (this.onUploadComplete && checkData.file_data) {
+                             this.onUploadComplete(checkData.file_data);
+                        } 
+                        // Вариант Б: Сервер вернул только URL
+                        else if (this.onUploadComplete && checkData.url) {
+                             const formatSize = (bytes) => {
+                                 if (bytes === 0) return '0 B';
+                                 const k = 1024;
+                                 const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                                 const i = Math.floor(Math.log(bytes) / Math.log(k));
+                                 return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                             };
+
+                             const mockData = {
+                                 short_id: checkData.url.split('/').pop(),
+                                 filename: file.name,
+                                 size: formatSize(file.size),
+                                 date: new Date().toISOString().split('T')[0],
+                                 downloads: 0,
+                                 url: checkData.url
+                             };
+                             this.onUploadComplete(mockData);
+                        }
+
                         resolve();
                         return;
                     }
-
+                    
+                    // Если файл существует, но НЕ принадлежит текущему пользователю
+                    // или файла вообще нет - продолжаем загрузку
                     uiItem.setStatus('Загрузка...');
                     uiItem.setProgress(50);
 
-                    // Этап 2: Отправка
                     uploadFile(file, hash, 
-                        (pct) => {
+                        (pct) => { 
                             if (!queueItem.cancelled) {
-                                uiItem.setProgress(50 + (pct / 2));
+                                uiItem.setProgress(50 + (pct / 2)); 
                             }
                         },
                         (res) => {
-                            cancelBtn.onclick = null; // Убираем слушатель
-
-                            if (queueItem.cancelled) {
-                                reject(new Error('Cancelled'));
-                                return;
+                            cancelBtn.onclick = null;
+                            if (queueItem.cancelled) { 
+                                reject(new Error('Cancelled')); 
+                                return; 
                             }
 
                             if (res && res.success) {
@@ -255,19 +279,18 @@ export class UploadManager {
                         },
                         (xhr) => {
                             queueItem.xhr = xhr;
-                            // Если отмена произошла пока xhr еще не создался
                             if (queueItem.cancelled) {
                                 xhr.abort();
                             }
                         }
                     );
-                }).catch(err => {
-                    if (!queueItem.cancelled) reject(err);
-                });
-
-            }).catch(err => {
-                if (!queueItem.cancelled) reject(err);
-            });
+                } catch (err) {
+                    console.error('[UPLOAD] Exception in startUpload:', err);
+                    if (!queueItem.cancelled) {
+                        reject(err);
+                    }
+                }
+            })();
         });
     }
 }
