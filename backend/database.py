@@ -4,6 +4,7 @@ from datetime import datetime
 from .config import DB_PATH
 from werkzeug.security import generate_password_hash, check_password_hash # Не забудьте этот импорт!
 
+# ... existing code ...
 
 def init_db():
     """Инициализирует базу данных и создает таблицу, если она не существует."""
@@ -13,9 +14,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS files (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 short_id TEXT UNIQUE NOT NULL,
-                unique_name TEXT UNIQUE NOT NULL,
+                unique_name TEXT NOT NULL,
                 original_filename TEXT NOT NULL,
-                file_hash TEXT UNIQUE NOT NULL,
+                file_hash TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
                 upload_date TEXT NOT NULL,
                 owner_id INTEGER,
@@ -30,6 +31,13 @@ def init_db():
             print("Adding owner_id column to files table...")
             c.execute("ALTER TABLE files ADD COLUMN owner_id INTEGER")
 
+        # Проверка и добавление колонки download_count, если она отсутствует
+        try:
+            c.execute("SELECT download_count FROM files LIMIT 1")
+        except sqlite3.OperationalError:
+            print("Adding download_count column to files table...")
+            c.execute("ALTER TABLE files ADD COLUMN download_count INTEGER DEFAULT 0")
+
          # Новая таблица пользователей
         c.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -40,6 +48,10 @@ def init_db():
             )
         ''')
         conn.commit()
+
+# ... existing code ...
+
+# ... existing code ...
 
 def get_file_by_hash(file_hash):
     """Получает данные файла по хешу."""
@@ -132,3 +144,20 @@ def delete_file_by_short_id(short_id):
         c = conn.cursor()
         c.execute('DELETE FROM files WHERE short_id = ?', (short_id,))
         conn.commit()
+
+def get_files_by_hash(file_hash):
+    """Получает ВСЕ записи файлов с данным хешем (для подсчета ссылок)"""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM files WHERE file_hash = ?', (file_hash,))
+        return [dict(row) for row in c.fetchall()]
+
+def get_unique_name_by_hash(file_hash):
+    """Получает unique_name по хешу (физическое имя файла на диске)"""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT unique_name FROM files WHERE file_hash = ? LIMIT 1', (file_hash,))
+        row = c.fetchone()
+        return row['unique_name'] if row else None

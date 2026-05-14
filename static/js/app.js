@@ -1,9 +1,9 @@
-// app.js
 import { copyToClipboard } from './utils.js';
 import {
     updateFileCount,
     renderFilesGrid,
-    addFileToGrid
+    addFileToGrid,
+    clearPreviewCache
 } from './ui.js';
 import { 
     fetchFilesPage
@@ -29,9 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSort = document.getElementById('btnSort');
     const sortMenu = document.getElementById('sortMenu');
     const btnSortText = document.getElementById('btnSortText');
-
     
-
     // --- State ---
     let allFiles = []; 
     let totalFilesCount = 0;
@@ -48,6 +46,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const userMenuBtn = document.getElementById('userMenuBtn');
     const userDropdown = document.getElementById('userDropdown');
 
+
+    const mobileAddBtn = document.getElementById('mobileAddBtn');
+    if (mobileAddBtn && fileInput) {
+        mobileAddBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+    }
+
+    // Очистка кэша превью при выходе
+    const logoutLink = document.querySelector('.logout-item');
+    if (logoutLink) {
+        logoutLink.addEventListener('click', () => {
+            clearPreviewCache();
+        });
+    }
     // Функция обновления иконок и текста
     function updateThemeUI(isDark) {
         if (isDark) {
@@ -156,16 +169,55 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Обработчик успешной загрузки файла из UploadManager
      */
+    // ... existing code ...
+    /**
+     * Обработчик успешной загрузки файла из UploadManager
+     */
+    // ... existing code ...
+    /**
+     * Обработчик успешной загрузки файла из UploadManager
+     */
+    // ... existing code ...
+    /**
+     * Обработчик успешной загрузки файла из UploadManager
+     */
     function handleFileUploaded(newFileData) {
-        allFiles.unshift(newFileData);
-        if (typeof totalFilesCount !== 'undefined') {
-            totalFilesCount++;
+        // Проверяем, нет ли уже такого файла в массиве
+        const exists = allFiles.some(f => f.short_id === newFileData.short_id);
+        
+        if (!exists) {
+            allFiles.unshift(newFileData);
+            if (typeof totalFilesCount !== 'undefined') {
+                totalFilesCount++;
+            }
+            refreshGridFromState();
         }
-        refreshGridFromState();
     }
 
+    // Обработчик удаления файлов
+// ... existing code ...
+
+    // Обработчик удаления файлов
+    window.addEventListener('filesDeleted', (event) => {
+        const deletedIds = event.detail.deletedIds;
+        
+        // Удаляем файлы из массива allFiles
+        allFiles = allFiles.filter(file => !deletedIds.includes(file.short_id));
+        
+        // Обновляем общее количество
+        if (typeof totalFilesCount !== 'undefined') {
+            totalFilesCount = Math.max(0, totalFilesCount - deletedIds.length);
+        }
+        
+        // Перерисовываем сетку
+        refreshGridFromState();
+    });
+
     // --- Init Upload Manager ---
-    // Передаем callback, который сработает, когда файл загрузится
+// ... existing code ...
+
+    // --- Init Upload Manager ---
+    // Создаем менеджер загрузок ОДИН раз
     const uploadManager = new UploadManager(handleFileUploaded);
 
     // --- Pagination Logic ---
@@ -219,8 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Event Listeners: Sorting ---
-
-        // --- Event Listeners: Sorting ---
 
     if (btnSort && sortMenu) {
         updateSortButtonText();
@@ -351,5 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Init ---
     initFileManager(filesListContainer, fileCountLabel);
+    
+    // Запускаем загрузку файлов ТОЛЬКО ОДИН РАЗ
     loadNextBatch();
 });

@@ -1,11 +1,20 @@
 # config.py
 import os
+from dotenv import load_dotenv
 
-UPLOAD_FOLDER = '/opt/filebrowser/data/uploads'
-DB_PATH = '/opt/filebrowser/data/uploads.db'
+# Загружаем переменные окружения
+load_dotenv()
 
-# Создаем директорию для загрузок, если её нет
+# Базовая директория проекта
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', os.path.join(BASE_DIR, 'uploads'))
+DB_PATH = os.environ.get('DB_PATH', os.path.join(BASE_DIR, 'data', 'uploads.db'))
+
+# Создаем директории, если их нет
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
 
 # Создаем директорию для сессий
 SESSION_FOLDER = '/tmp/sessions'
