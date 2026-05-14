@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Share</title>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else if (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <!-- Подключаем главный CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -28,12 +38,10 @@
     <!-- Левая панель: Загрузка -->
     <aside class="sidebar">
         <h1>📤 Загрузка</h1>
-        
-        
-
         <!-- Остальной контент сайдбара... -->
         <!-- Скрытый инпут для выбора файла -->
-        <input type="file" id="fileInput" hidden>
+        <input type="file" id="fileInput" hidden multiple>
+
         
         <!-- Информация о выбранном файле -->
         <div class="file-info" id="fileInfo">
@@ -62,6 +70,14 @@
 
     <!-- Правая часть: Список файлов -->
     <main class="main-content">
+
+        <!-- === КНОПКА ДОБАВЛЕНИЯ ФАЙЛОВ (FAB) ДЛЯ МОБИЛЬНЫХ === -->
+        <button id="mobileAddBtn" class="mobile-fab" title="Добавить файлы">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
 
         <!-- === МЕНЮ ПОЛЬЗОВАТЕЛЯ (ПРАВЫЙ ВЕРХНИЙ УГОЛ) === -->
         {% if current_user %}

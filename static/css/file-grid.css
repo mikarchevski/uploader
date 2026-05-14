@@ -88,7 +88,6 @@
     background: white;
     border-radius: 12px;
     border: 2px dashed var(--border);
-    width: 100%;
     min-height: 300px;
 }
 .no-files h3 {

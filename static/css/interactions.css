@@ -229,9 +229,17 @@
         align-items: flex-start;
         gap: 1rem;
     }
-    .files-controls { width: 100%; justify-content: space-between; }
-    .sort-menu { right: auto; left: 0; width: 100%; }
-    .btn-sort { width: 100%; }
+    .files-controls { 
+        width: 100%; 
+        justify-content: space-between; 
+    }
+    .sort-menu { 
+        right: auto; 
+        left: 0; 
+    }
+    .btn-sort { 
+        width: 100%; 
+    }
 }
 
 /* static/css/interactions.css */
@@ -397,4 +405,142 @@
     }
     
     /* Если кнопок много, можно скрыть текст и оставить иконки, но пока оставим так */
+}
+
+
+
+/* --- Floating Action Button (FAB) для мобильных --- */
+.mobile-fab {
+    display: none; /* Скрыта на десктопе */
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    cursor: pointer;
+    z-index: 999;
+    transition: all 0.3s ease;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-fab:hover {
+    background: var(--primary-hover);
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+}
+
+.mobile-fab:active {
+    transform: scale(0.95);
+}
+
+.mobile-fab svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Показываем FAB только на мобильных */
+@media (max-width: 768px) {
+    .mobile-fab {
+        display: flex;
+    }
+    
+    /* Скрываем панель действий файла на мобильных */
+    .file-action-bar {
+        display: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+    body { 
+        flex-direction: column; 
+        overflow-x: hidden;
+        width: 100%;
+    }
+    
+    .sidebar { 
+        display: none;
+    }
+    
+    /* Скрываем кнопку выбора файла на мобильных, так как есть FAB */
+    .sidebar #uploadBtn {
+        display: none;
+    }
+    
+    .main-content { 
+        margin-left: 0; 
+        width: 100%; 
+        max-width: 100vw;
+        padding: 1rem;
+        overflow-x: hidden;
+        padding-bottom: 100px; /* Отступ снизу для FAB */
+    }
+    
+    .files-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+}
+
+.mobile-fab {
+    display: none;
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    cursor: pointer;
+    z-index: 999;
+    transition: all 0.3s ease;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-fab:hover {
+    background: var(--primary-hover);
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+}
+
+.mobile-fab:active {
+    transform: scale(0.95) rotate(90deg);
+}
+
+.mobile-fab svg {
+    width: 24px;
+    height: 24px;
+    transition: transform 0.3s ease;
+}
+
+/* Анимация при открытии */
+.mobile-fab.open svg {
+    transform: rotate(45deg);
+}
+
+/* Показываем FAB только на мобильных */
+@media (max-width: 768px) {
+    .mobile-fab {
+        display: flex;
+    }
+    
+    /* Скрываем панель действий файла на мобильных */
+    .file-action-bar {
+        display: none !important;
+    }
+    
+    /* Увеличиваем отступ снизу для основного контента, чтобы FAB не перекрывал файлы */
+    .main-content {
+        padding-bottom: 100px;
+    }
 }

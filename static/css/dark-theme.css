@@ -220,3 +220,7 @@
 [data-theme="dark"] .progress-bg {
     background: #475569;
 }
+
+[data-theme="dark"] .no-files {
+    background: #475569;
+}

@@ -23,17 +23,27 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     let selectedIds = new Set(); 
 
     // --- Логика Модального Окна ---
-    function openDeleteModal(filesToDelete) {
+     function openDeleteModal(filesToDelete) {
         pendingDeleteFiles = filesToDelete;
         
+        // Экранируем имя файла для защиты от XSS
+        const safeFilename = escapeHtml(filesToDelete[0].filename);
+        
         if (filesToDelete.length === 1) {
-            modalFileName.innerHTML = `Вы действительно хотите удалить файл <strong>${filesToDelete[0].filename}</strong>?`;
+            modalFileName.innerHTML = `Вы действительно хотите удалить файл <strong>${safeFilename}</strong>?`;
         } else {
             modalFileName.innerHTML = `Вы действительно хотите удалить <strong>${filesToDelete.length}</strong> файл(ов)?`;
         }
         
         deleteModal.classList.remove('hidden');
         setTimeout(() => deleteModal.classList.add('active'), 10);
+    }
+
+     // Helper функция для экранирования HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function closeDeleteModal() {
@@ -106,7 +116,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         }
     }
 
-    function updateActionBarState(selectedCount) {
+     function updateActionBarState(selectedCount) {
         if (selectedCount === 0) {
             closeFileActionBar();
             return;
@@ -119,7 +129,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             
             if (card) {
                 const filename = card.querySelector('.file-card-name').textContent;
-                actionFileName.textContent = filename;
+                actionFileName.textContent = filename; // textContent безопасен, XSS невозможен
                 
                 btnDownload.classList.remove('hidden');
                 btnDownload.textContent = '⬇ Скачать'; 
@@ -216,6 +226,10 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     }
 
     // --- Логика массового удаления ---
+    // ... existing code ...
+    // --- Логика массового удаления ---
+    // ... existing code ...
+    // --- Логика массового удаления ---
     async function performBulkDelete(idsToDelete) {
         if (!idsToDelete || idsToDelete.length === 0) return;
 
@@ -246,14 +260,25 @@ export function initFileManager(filesListContainer, fileCountLabel) {
 
         showToast(`Удалено файлов: ${countToDelete}`);
 
-        clearSelection(); // Здесь можно закрыть панель, так как файлов больше нет
+        clearSelection();
         closeFileActionBar();
 
-        idsToDelete.forEach(id => {
-            fetch(`/api/delete/${id}`, { method: 'DELETE' })
-                .catch(err => console.error(`Network error deleting ${id}`, err));
-        });
+        // Выполняем удаление на сервере последовательно для надежности
+        for (const id of idsToDelete) {
+            try {
+                await fetch(`/api/delete/${id}`, { method: 'DELETE' });
+            } catch (err) {
+                console.error(`Network error deleting ${id}`, err);
+            }
+        }
+        
+        // Сообщаем главному приложению об удалении файлов через кастомное событие
+        window.dispatchEvent(new CustomEvent('filesDeleted', { 
+            detail: { deletedIds: idsToDelete } 
+        }));
     }
+// ... existing code ...
+// ... existing code ...
 
     // --- Управление панелью действий ---
     function openFileActionBar() {

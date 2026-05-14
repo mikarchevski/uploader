@@ -501,9 +501,7 @@ body.is-dragging * {
 /* Адаптивность для мобильных */
 @media (max-width: 768px) {
     .sort-menu, .user-dropdown {
-        right: auto;
-        left: 0;
-        width: 100%;
+        right: 0;
     }
 }
 
