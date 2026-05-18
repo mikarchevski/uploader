@@ -42,6 +42,9 @@
         <!-- Скрытый инпут для выбора файла -->
         <input type="file" id="fileInput" hidden multiple>
 
+        <!-- Скрытый инпут для выбора папки -->
+        <input type="file" id="folderInput" hidden webkitdirectory directory multiple>
+
         
         <!-- Информация о выбранном файле -->
         <div class="file-info" id="fileInfo">
@@ -57,6 +60,8 @@
 
         <!-- Кнопка загрузки -->
         <button class="btn" id="uploadBtn">Выбрать файл</button>
+
+        <button class="btn btn-secondary" id="uploadFolderBtn" style="margin-top: 10px; width: 100%;">📁 Загрузить папку</button>
 
         <!-- Результат загрузки (ссылка) -->
         <div class="result" id="resultBox">
@@ -78,7 +83,9 @@
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
         </button>
-
+        <div id="breadcrumbs" style="padding: 10px 20px; font-size: 0.9rem; color: var(--text-secondary);">
+            <!-- Сюда JS будет вставлять навигацию -->
+        </div>
         <!-- === МЕНЮ ПОЛЬЗОВАТЕЛЯ (ПРАВЫЙ ВЕРХНИЙ УГОЛ) === -->
         {% if current_user %}
         <div class="user-menu-wrapper">
@@ -200,7 +207,20 @@
                 <div class="loading-text">Загрузка...</div>
             </div>
         </div>
-        
+       <!-- Lightbox Modal -->
+        <div id="imageModal" class="modal hidden">
+            <span class="close-modal">&times;</span>
+            <img class="modal-content" id="modalImage">
+            <div id="caption"></div>
+        </div>
+         <!-- Модальное окно для видео -->
+        <div id="videoModal" class="modal hidden">
+            <span class="close-modal" id="closeVideoModal">&times;</span>
+            <video class="modal-content" id="modalVideo" controls>
+                Ваш браузер не поддерживает видео тег.
+            </video>
+            <div id="videoCaption"></div>
+        </div>
     </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>

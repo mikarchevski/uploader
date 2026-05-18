@@ -21,57 +21,57 @@ export async function fetchFilesPage(page = 1, perPage = 20) {
 }
 
 /**
- * Проверяет наличие файла по хешу
- */
-export async function checkFileExists(hash) {
-    const res = await fetch(`/check?h=${hash}`);
-    return await res.json();
-}
-
-/**
  * Загружает файл на сервер
- * @param {Function} onXhrReady - Callback, который вернет объект XHR для возможности отмены
  */
-export function uploadFile(file, hash, onProgress, onLoad, onError, onXhrReady) {
+export function uploadFile(file, hash, onProgress, onSuccess, onError, onXhrReady, folderPath = '') {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('hash', hash);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload');
-    
-    // Сразу передаем xhr, чтобы можно было отменить даже до начала отправки
-    if (onXhrReady) {
-        onXhrReady(xhr);
+    if (folderPath) {
+        formData.append('folder_path', folderPath);
     }
 
-    xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            onProgress(pct);
-        }
-    });
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload', true);
 
-    xhr.addEventListener('load', () => {
+    xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            onProgress(percentComplete);
+        }
+    };
+
+    xhr.onload = () => {
         if (xhr.status === 200) {
             try {
-                const res = JSON.parse(xhr.responseText);
-                onLoad(res);
+                const response = JSON.parse(xhr.responseText);
+                onSuccess(response);
             } catch (e) {
-                onError(e);
+                onError(new Error('Invalid JSON response'));
             }
         } else {
-            onLoad(null); 
+            onError(new Error(`Server error: ${xhr.status}`));
         }
-    });
+    };
 
-    xhr.addEventListener('error', () => {
-        onError({ type: 'error' });
-    });
+    xhr.onerror = () => onError(new Error('Network error'));
     
-    xhr.addEventListener('abort', () => {
-        onError({ type: 'abort' });
-    });
+    if (onXhrReady) onXhrReady(xhr);
 
     xhr.send(formData);
+}
+
+/**
+ * Проверяет существование файла
+ */
+export async function checkFileExists(hash, folderPath = '') {
+    try {
+        // Добавляем folder_path в запрос проверки
+        const url = `/check?h=${hash}&folder_path=${encodeURIComponent(folderPath)}`;
+        const res = await fetch(url);
+        return await res.json();
+    } catch (err) {
+        console.error("Check file error:", err);
+        return { exists: false };
+    }
 }

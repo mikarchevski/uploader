@@ -15,11 +15,28 @@ export function formatBytes(bytes) {
  * Вычисляет SHA-256 хеш файла
  */
 export async function computeFileHash(file) {
-    const buffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    try {
+        // Проверяем, доступен ли файл вообще
+        if (!file || file.size === undefined) {
+            throw new Error("Invalid file object");
+        }
+
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
+    } catch (error) {
+        if (error.name === 'AbortError' || error.message.includes('aborted')) {
+            console.warn(`[HASH] Operation aborted for file: ${file.name}`);
+            throw new Error('Cancelled'); // Пробрасываем как отмену, чтобы не пугать пользователя
+        }
+        console.error(`[HASH] Error computing hash for ${file.name}:`, error);
+        throw error;
+    }
 }
+
+// ... existing code ...
 
 /**
  * Возвращает эмодзи-иконку в зависимости от расширения файла

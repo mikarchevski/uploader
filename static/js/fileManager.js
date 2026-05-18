@@ -6,41 +6,37 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     const fileActionBar = document.getElementById('fileActionBar');
     const actionFileName = document.getElementById('actionFileName');
     
-    // Кнопки внутри панели действий файла
     const btnDownload = document.getElementById('btnDownload');
     const btnCopyLink = document.getElementById('btnCopyLink');
     const btnDelete = document.getElementById('btnDelete');
     const btnCloseBar = document.getElementById('btnCloseBar');
     
-    // Элементы модального окна
     const deleteModal = document.getElementById('deleteConfirmModal');
     const modalFileName = document.getElementById('modalFileName');
     const btnConfirmDelete = document.getElementById('btnConfirmDelete');
     const btnCancelDelete = document.getElementById('btnCancelDelete');
 
-    let pendingDeleteFiles = []; 
+    let pendingDeleteItem = null; 
     let isPanelOpen = false;      
-    let selectedIds = new Set(); 
+    let selectedItemKey = null;   
 
     // --- Логика Модального Окна ---
-     function openDeleteModal(filesToDelete) {
-        pendingDeleteFiles = filesToDelete;
+    function openDeleteModal(item) {
+        pendingDeleteItem = item;
+        const safeName = escapeHtml(item.name);
         
-        // Экранируем имя файла для защиты от XSS
-        const safeFilename = escapeHtml(filesToDelete[0].filename);
-        
-        if (filesToDelete.length === 1) {
-            modalFileName.innerHTML = `Вы действительно хотите удалить файл <strong>${safeFilename}</strong>?`;
+        if (item.type === 'folder') {
+            modalFileName.innerHTML = `Удалить папку <strong>${safeName}</strong> и всё её содержимое?`;
         } else {
-            modalFileName.innerHTML = `Вы действительно хотите удалить <strong>${filesToDelete.length}</strong> файл(ов)?`;
+            modalFileName.innerHTML = `Удалить файл <strong>${safeName}</strong>?`;
         }
         
         deleteModal.classList.remove('hidden');
         setTimeout(() => deleteModal.classList.add('active'), 10);
     }
 
-     // Helper функция для экранирования HTML
     function escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -50,7 +46,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         deleteModal.classList.remove('active');
         setTimeout(() => {
             deleteModal.classList.add('hidden');
-            pendingDeleteFiles = [];
+            pendingDeleteItem = null;
         }, 200);
     }
 
@@ -64,176 +60,172 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     if (btnConfirmDelete) {
         btnConfirmDelete.onclick = async (e) => {
             e.stopPropagation();
-            if (pendingDeleteFiles.length === 0) return;
+            if (!pendingDeleteItem) return;
             
-            const idsToDelete = pendingDeleteFiles.map(f => f.short_id);
             closeDeleteModal(); 
             
-            await performBulkDelete(idsToDelete);
+            if (pendingDeleteItem.type === 'folder') {
+                await performFolderDelete(pendingDeleteItem.path);
+            } else {
+                await performBulkDelete([pendingDeleteItem.id]);
+            }
         };
     }
 
-    // --- Функции управления выделением ---
+    // --- Управление выделением и Панелью ---
 
-    function toggleSelection(shortId, element) {
-        if (selectedIds.has(shortId)) {
-            selectedIds.delete(shortId);
-            element.classList.remove('selected');
-        } else {
-            selectedIds.add(shortId);
-            element.classList.add('selected');
-        }
-        updateUIForSelection();
-    }
-
-    // clearSelection теперь принимает флаг, чтобы не закрывать панель, если мы знаем, что она нужна
-    function clearSelection(keepPanelOpen = false) {
-        const selectedElements = document.querySelectorAll('.file-card.selected');
-        selectedElements.forEach(el => el.classList.remove('selected'));
-        selectedIds.clear();
+    function selectItem(key, element) {
+        document.querySelectorAll('.file-card.selected').forEach(el => {
+            if (el !== element) el.classList.remove('selected');
+        });
         
-        // Если мы не просили держать панель открытой, обновляем UI (что закроет её)
-        if (!keepPanelOpen) {
-            updateUIForSelection();
-        }
-        // Если keepPanelOpen === true, мы просто очистили данные, но панель останется висеть
-        // до следующего явного вызова updateUIForSelection или closeFileActionBar
-    }
-
-    function updateUIForSelection() {
-        const count = selectedIds.size;
-
-        if (count > 0) {
-            if (!isPanelOpen) {
-                openFileActionBar();
-            } else {
-                updateActionBarState(count);
-            }
+        selectedItemKey = key;
+        element.classList.add('selected');
+        
+        if (!isPanelOpen) {
+            openFileActionBar(element);
         } else {
-            if (isPanelOpen) {
-                closeFileActionBar();
-            }
+            updateActionBarState(element);
         }
     }
 
-     function updateActionBarState(selectedCount) {
-        if (selectedCount === 0) {
+    function clearSelection() {
+        document.querySelectorAll('.file-card.selected').forEach(el => el.classList.remove('selected'));
+        selectedItemKey = null;
+        if (isPanelOpen) closeFileActionBar();
+    }
+
+    // ЕДИНАЯ ЛОГИКА ПАНЕЛИ ДЛЯ ВСЕХ ОБЪЕКТОВ
+    function updateActionBarState(activeCard) {
+        if (!selectedItemKey || !activeCard) {
             closeFileActionBar();
             return;
         }
 
-        if (selectedCount === 1) {
-            // --- Режим ОДНОГО файла (Прямое скачивание) ---
-            const id = Array.from(selectedIds)[0];
-            const card = document.querySelector(`.file-card[data-short-id="${id}"]`);
+        const name = activeCard.querySelector('.file-card-name').textContent;
+        actionFileName.textContent = name;
+        
+        const isFolder = activeCard.classList.contains('folder-card');
+
+        // Сбрасываем старые обработчики
+        btnDownload.onclick = null;
+        btnCopyLink.onclick = null;
+        btnDelete.onclick = null;
+
+        // ВСЕГДА показываем все три кнопки
+        btnDownload.classList.remove('hidden');
+        btnCopyLink.classList.remove('hidden');
+        btnDelete.classList.remove('hidden');
+
+        if (isFolder) {
+            // Настройки для ПАПКИ
+            btnDownload.textContent = '⬇ Скачать ZIP';
+            btnCopyLink.textContent = '🔗 Поделиться';
+            btnDelete.textContent = '🗑 Удалить';
             
-            if (card) {
-                const filename = card.querySelector('.file-card-name').textContent;
-                actionFileName.textContent = filename; // textContent безопасен, XSS невозможен
-                
-                btnDownload.classList.remove('hidden');
-                btnDownload.textContent = '⬇ Скачать'; 
-                
-                btnCopyLink.classList.remove('hidden');
-                
-                btnDelete.textContent = '🗑 Удалить';
-                
-                const url = `/d/${id}`;
-                
-                // Прямое скачивание без ZIP
-                btnDownload.onclick = () => window.location.href = url;
-                
-                btnCopyLink.onclick = () => copyToClipboard(url);
-                
-                btnDelete.onclick = () => openDeleteModal([{ short_id: id, filename }]);
-            }
+            const folderPath = activeCard.getAttribute('data-folder-path');
+            
+            // Скачивание папки как ZIP
+            btnDownload.onclick = () => downloadFolderAsZip(folderPath, name);
+            
+            // Копирование ссылки (пока просто заглушка или ссылка на текущий URL)
+            btnCopyLink.onclick = () => {
+                // Можно сделать генерацию специальной ссылки, пока копируем текущую
+                copyToClipboard(window.location.href); 
+                showToast('Ссылка скопирована');
+            };
+            
+            btnDelete.onclick = () => openDeleteModal({ type: 'folder', name, path: folderPath });
+
         } else {
-            // --- Режим МНОЖЕСТВЕННОГО выбора (Скачивание ZIP) ---
-            actionFileName.textContent = `Выбрано файлов: ${selectedCount}`;
+            // Настройки для ФАЙЛА
+            btnDownload.textContent = '⬇ Скачать';
+            btnCopyLink.textContent = '🔗 Поделиться';
+            btnDelete.textContent = '🗑 Удалить';
             
-            btnDownload.classList.remove('hidden');
-            btnDownload.textContent = '⬇ Скачать ZIP'; 
+            const url = `/d/${selectedItemKey}`;
             
-            // Назначаем функцию создания ZIP
-            btnDownload.onclick = () => downloadSelectedAsZip();
-
-            btnCopyLink.classList.add('hidden');
-            
-            btnDelete.textContent = `🗑 Удалить`;
-            
-            const dummyFiles = Array.from(selectedIds).map(id => ({ short_id: id, filename: '' }));
-            btnDelete.onclick = () => openDeleteModal(dummyFiles);
+            btnDownload.onclick = () => window.location.href = url;
+            btnCopyLink.onclick = () => copyToClipboard(url);
+            btnDelete.onclick = () => openDeleteModal({ type: 'file', name, id: selectedItemKey });
         }
     }
 
-    // --- Массовое скачивание (ZIP) ---
-    async function downloadSelectedAsZip() {
-        if (selectedIds.size === 0) return;
+    // --- Скачивание папки как ZIP ---
+    // ... existing code ...
 
-        const originalText = btnDownload.textContent;
-        btnDownload.textContent = '⏳ Подготовка...';
-        btnDownload.disabled = true;
-
-        const zip = new JSZip();
-        const folder = zip.folder("files");
-        let successCount = 0;
-
+    // --- Скачивание папки как ZIP ---
+    async function downloadFolderAsZip(folderPath, folderName) {
         try {
-            for (const id of selectedIds) {
-                const card = document.querySelector(`.file-card[data-short-id="${id}"]`);
-                if (!card) continue;
-
-                const filename = card.querySelector('.file-card-name').textContent;
-                const url = `/d/${id}`;
-
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    
-                    const blob = await response.blob();
-                    folder.file(filename, blob);
-                    successCount++;
-                } catch (err) {
-                    console.error(`Failed to download ${filename}:`, err);
-                }
+            showToast('Подготовка архива...');
+            
+            // Делаем запрос к нашему новому API
+            const response = await fetch(`/api/download/folder?path=${encodeURIComponent(folderPath)}`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to create archive');
             }
 
-            if (successCount === 0) {
-                showToast('Не удалось скачать ни один файл', true);
-                return;
-            }
-
-            showToast(`Архивация ${successCount} файлов...`);
-
-            const content = await zip.generateAsync({ type: "blob" });
+            // Получаем blob (бинарные данные архива)
+            const blob = await response.blob();
             
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(content);
-            link.download = `files_archive_${new Date().getTime()}.zip`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Создаем временную ссылку для скачивания
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${folderName}.zip`;
+            document.body.appendChild(a);
+            a.click();
             
-            showToast('Архив успешно создан!');
-
+            // Убираем за собой
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast('Архив скачан');
         } catch (err) {
-            console.error(err);
+            console.error("Zip download error:", err);
             showToast('Ошибка при создании архива', true);
-        } finally {
-            btnDownload.textContent = originalText;
-            btnDownload.disabled = false;
         }
     }
 
-    // --- Логика массового удаления ---
-    // ... existing code ...
-    // --- Логика массового удаления ---
-    // ... existing code ...
-    // --- Логика массового удаления ---
+// ... existing code ...
+
+    // --- Удаление ПАПКИ ---
+    async function performFolderDelete(folderPath) {
+        try {
+            const res = await fetch('/api/delete/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folder_path: folderPath })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                const folderCard = document.querySelector(`.file-card[data-folder-path="${folderPath}"]`);
+                if (folderCard) {
+                    folderCard.style.opacity = '0';
+                    folderCard.style.transform = 'scale(0.9)';
+                    setTimeout(() => folderCard.remove(), 200);
+                }
+
+                window.dispatchEvent(new CustomEvent('folderDeleted', { 
+                    detail: { folderPath } 
+                }));
+                
+                showToast('Папка успешно удалена');
+                clearSelection();
+            } else {
+                showToast(data.error || 'Ошибка при удалении папки', true);
+            }
+        } catch (err) {
+            console.error("Delete folder error:", err);
+            showToast('Ошибка сети при удалении', true);
+        }
+    }
+
+    // --- Удаление ФАЙЛОВ ---
     async function performBulkDelete(idsToDelete) {
         if (!idsToDelete || idsToDelete.length === 0) return;
-
-        const countToDelete = idsToDelete.length;
 
         idsToDelete.forEach(id => {
             const card = filesListContainer.querySelector(`.file-card[data-short-id="${id}"]`);
@@ -241,11 +233,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
                 card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
                 card.style.opacity = '0';
                 card.style.transform = 'scale(0.9)';
-                card.style.pointerEvents = 'none';
-                
-                setTimeout(() => {
-                    if (card.parentNode) card.remove();
-                }, 200);
+                setTimeout(() => { if (card.parentNode) card.remove(); }, 200);
             }
         });
 
@@ -253,156 +241,99 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             const match = fileCountLabel.textContent.match(/\d+/);
             if (match) {
                 const currentCount = parseInt(match[0]);
-                const newCount = Math.max(0, currentCount - countToDelete);
-                updateFileCount(fileCountLabel, newCount);
+                updateFileCount(fileCountLabel, Math.max(0, currentCount - idsToDelete.length));
             }
         }
 
-        showToast(`Удалено файлов: ${countToDelete}`);
-
+        showToast(`Удалено объектов: ${idsToDelete.length}`);
         clearSelection();
-        closeFileActionBar();
 
-        // Выполняем удаление на сервере последовательно для надежности
         for (const id of idsToDelete) {
-            try {
-                await fetch(`/api/delete/${id}`, { method: 'DELETE' });
-            } catch (err) {
-                console.error(`Network error deleting ${id}`, err);
-            }
+            try { await fetch(`/api/delete/${id}`, { method: 'DELETE' }); } 
+            catch (err) { console.error(`Error deleting ${id}`, err); }
         }
         
-        // Сообщаем главному приложению об удалении файлов через кастомное событие
         window.dispatchEvent(new CustomEvent('filesDeleted', { 
             detail: { deletedIds: idsToDelete } 
         }));
     }
-// ... existing code ...
-// ... existing code ...
 
-    // --- Управление панелью действий ---
-    function openFileActionBar() {
+    // --- Управление панелью ---
+    function openFileActionBar(activeCard) {
         isPanelOpen = true;
         fileActionBar.classList.remove('hidden');
-        // Небольшая задержка для CSS transition
         requestAnimationFrame(() => {
             fileActionBar.classList.add('active');
+            if (activeCard) updateActionBarState(activeCard);
         });
-        updateActionBarState(selectedIds.size);
     }
 
     function closeFileActionBar() {
         if (!isPanelOpen) return;
         isPanelOpen = false;
         fileActionBar.classList.remove('active');
-        setTimeout(() => {
-            fileActionBar.classList.add('hidden');
-        }, 300);
+        setTimeout(() => fileActionBar.classList.add('hidden'), 300);
     }
 
     if (btnCloseBar) {
         btnCloseBar.addEventListener('click', (e) => {
             e.stopPropagation();
             clearSelection(); 
-            closeFileActionBar();
         });
     }
 
-    // --- Обработчик клика по сетке файлов ---
+    // --- Обработчик клика по сетке ---
     filesListContainer.addEventListener('click', (e) => {
-        // === НОВОЕ: Закрываем меню сортировки при клике на файл ===
         const sortMenu = document.getElementById('sortMenu');
-        const btnSort = document.getElementById('btnSort');
-        
         if (sortMenu && sortMenu.classList.contains('active')) {
             sortMenu.classList.remove('active');
-            if (btnSort) {
-                const dropdown = btnSort.closest('.sort-dropdown');
-                if (dropdown) dropdown.classList.remove('active');
-            }
             setTimeout(() => sortMenu.classList.add('hidden'), 200);
         }
 
-        // === 2. ЗАКРЫВАЕМ МЕНЮ ПОЛЬЗОВАТЕЛЯ, ЕСЛИ ОНО ОТКРЫТО ===
         const userDropdown = document.getElementById('userDropdown');
-        const userMenuBtn = document.getElementById('userMenuBtn');
-
         if (userDropdown && userDropdown.classList.contains('show')) {
             userDropdown.classList.remove('show');
-            // Добавляем hidden с небольшой задержкой для анимации (как в app.js)
-            setTimeout(() => {
-                if (!userDropdown.classList.contains('show')) {
-                    userDropdown.classList.add('hidden');
-                }
-            }, 200);
+            setTimeout(() => userDropdown.classList.add('hidden'), 200);
         }
 
         const card = e.target.closest('.file-card');
-        
-        // Если клик был по кнопкам внутри карточки, игнорируем выбор
         if (e.target.closest('.action-btn')) return;
 
-        // Если клик в пустоту внутри контейнера
         if (!card) {
-            clearSelection(); // Закроет панель через updateUIForSelection
+            clearSelection();
             return;
         }
 
-        const shortId = card.getAttribute('data-short-id');
+        const key = card.getAttribute('data-short-id') || card.getAttribute('data-folder-path');
+        
+        if (key) {
+            selectItem(key, card);
+        }
+        
+        e.stopPropagation();
+    });
+     // Обработчик ДВОЙНОГО клика
+     filesListContainer.addEventListener('dblclick', (e) => {
+        const card = e.target.closest('.file-card');
+        if (!card) return;
 
-        // Мультиселект (Ctrl / Cmd)
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault(); 
-            e.stopPropagation(); 
-            toggleSelection(shortId, card);
-        } else {
-            // Обычный клик
-            
-            // Если кликнули на уже выбранный файл
-            if (selectedIds.has(shortId)) {
-                // Если выбрано много, оставляем только этот
-                if (selectedIds.size > 1) {
-                    clearSelection(true); // Очищаем, но держим панель открытой
-                    card.classList.add('selected');
-                    selectedIds.add(shortId);
-                    updateUIForSelection(); // Обновляем панель под 1 файл
-                } 
-                // Если один, просто убеждаемся, что панель открыта
-                else {
-                    if (!isPanelOpen) openFileActionBar();
-                }
-            } else {
-                // Клик по новому файлу -> сброс старого, выбор нового
-                
-                // ВАЖНО: Передаем true, чтобы clearSelection не закрыл панель сразу
-                clearSelection(true); 
-                
-                card.classList.add('selected');
-                selectedIds.add(shortId);
-                
-                // Теперь явно открываем/обновляем панель для нового файла
-                if (!isPanelOpen) {
-                    openFileActionBar();
-                } else {
-                    updateActionBarState(1);
-                }
+        // Открываем папку при двойном клике
+        if (card.classList.contains('folder-card')) {
+            const folderPath = card.getAttribute('data-folder-path');
+            if (folderPath && window.navigateToFolder) {
+                window.navigateToFolder(folderPath);
             }
-            
-            // Останавливаем всплытие, чтобы глобальный обработчик не сработал
-            e.stopPropagation();
         }
     });
 
-    // Глобальный клик для закрытия панели (только если клик вне важных зон)
     document.addEventListener('click', (e) => {
         const card = e.target.closest('.file-card');
         const clickedInsideBar = e.target.closest('#fileActionBar');
         const clickedInsideModal = e.target.closest('#deleteConfirmModal');
         const clickedInsideSort = e.target.closest('.sort-dropdown');
 
-        // Закрываем панель ТОЛЬКО если клик был НЕ по карточке, НЕ по панели, НЕ по модалке и НЕ по сортировке
         if (!card && !clickedInsideBar && !clickedInsideModal && !clickedInsideSort) {
             clearSelection();
         }
-    }, true); // Используем capture phase для надежности
+    }, true);
 }

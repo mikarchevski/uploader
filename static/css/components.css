@@ -526,3 +526,34 @@ body.is-dragging * {
     background: #f8fafc;
     border-color: var(--primary);
 }
+
+
+.btn-secondary {
+    background-color: #f1f5f9;
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+    background-color: #e2e8f0;
+}
+
+
+/* Стили для карточки папки */
+.folder-card {
+    background-color: #f8fafc; /* Чуть более серый фон для папок */
+    border-style: dashed; /* Пунктирная рамка */
+}
+
+[data-theme="dark"] .folder-card {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.folder-card:hover {
+    background-color: #eff6ff;
+    border-color: var(--primary);
+    border-style: solid;
+}
+
+[data-theme="dark"] .folder-card:hover {
+    background-color: rgba(96, 165, 250, 0.1);
+}

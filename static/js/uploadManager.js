@@ -47,15 +47,23 @@ export class UploadManager {
         this.hide();
     }
 
+    // ... existing code ...
     addToQueue(filesArray) {
         if (!filesArray || filesArray.length === 0) return;
         
+        // Проверяем, является ли это папкой (есть ли webkitRelativePath у первого файла)
+        const firstFile = filesArray[0];
+        if (firstFile.webkitRelativePath && filesArray.length > 1) {
+            this.addFolderToQueue(filesArray);
+            return;
+        }
+
+        // Стандартная логика для отдельных файлов
         const referenceNode = this.uploadList.firstChild;
         
         for (let i = filesArray.length - 1; i >= 0; i--) {
             const file = filesArray[i];
             const uiItem = this.createUploadItem(file, referenceNode);
-            // Добавляем xhr: null, он заполнится позже
             this.queue.unshift({ file, uiItem, xhr: null, cancelled: false }); 
         }
 
@@ -65,6 +73,103 @@ export class UploadManager {
             this.processQueue();
         }
     }
+
+// ... existing code ...
+    // ... existing code ...
+    addFolderToQueue(filesArray) {
+        // 1. Группируем файлы по КОРНЕВОЙ папке (первая часть пути)
+        const foldersMap = new Map();
+
+        filesArray.forEach(file => {
+            if (!file.webkitRelativePath) return;
+
+            // Путь выглядит как "MyFolder/Sub/file.txt"
+            // split('/')[0] вернет "MyFolder"
+            const rootFolderName = file.webkitRelativePath.split('/')[0];
+            
+            if (!foldersMap.has(rootFolderName)) {
+                foldersMap.set(rootFolderName, []);
+            }
+            foldersMap.get(rootFolderName).push(file);
+        });
+
+        // 2. Создаем UI элементы для каждой корневой папки
+        foldersMap.forEach((filesInFolder, folderName) => {
+            const totalFiles = filesInFolder.length;
+            
+            const itemEl = document.createElement('div');
+            itemEl.className = 'upload-item folder-upload-item';
+            
+            itemEl.innerHTML = `
+                <div class="item-header">
+                    <span class="item-name" title="${folderName}">📁 ${folderName} (${totalFiles} файлов)</span>
+                    <button class="cancel-btn" title="Отменить загрузку">×</button>
+                </div>
+                <div class="item-status">Подготовка...</div>
+                <div class="progress-bg">
+                    <div class="progress-bar"></div>
+                </div>
+                <div class="folder-details" style="font-size: 0.8rem; color: var(--muted); margin-top: 5px;">
+                    Загружено: 0 / ${totalFiles}
+                </div>
+            `;
+            
+            this.uploadList.insertBefore(itemEl, this.uploadList.firstChild);
+
+            const cancelBtn = itemEl.querySelector('.cancel-btn');
+            const statusEl = itemEl.querySelector('.item-status');
+            const barEl = itemEl.querySelector('.progress-bar');
+            const detailsEl = itemEl.querySelector('.folder-details');
+
+            let completedCount = 0;
+            let isCancelled = false;
+
+            cancelBtn.onclick = () => {
+                isCancelled = true;
+                itemEl.classList.add('cancelled');
+                statusEl.textContent = '⛔ Отмена...';
+            };
+
+            this.show();
+
+            // 3. Добавляем файлы в очередь с ссылкой на родительский UI
+            filesInFolder.forEach(file => {
+                this.queue.push({ 
+                    file, 
+                    isPartOfFolder: true,
+                    parentUi: {
+                        element: itemEl,
+                        updateProgress: () => {
+                            if (isCancelled) return;
+                            completedCount++;
+                            const percent = (completedCount / totalFiles) * 100;
+                            barEl.style.width = percent + '%';
+                            detailsEl.textContent = `Загружено: ${completedCount} / ${totalFiles}`;
+                            
+                            if (completedCount === totalFiles) {
+                                statusEl.textContent = '✅ Папка загружена';
+                                itemEl.classList.add('success');
+                                cancelBtn.style.display = 'none';
+                                setTimeout(() => itemEl.remove(), 3000);
+                            }
+                        },
+                        setError: (msg) => {
+                            statusEl.textContent = '❌ Ошибка: ' + msg;
+                            itemEl.classList.add('error');
+                        }
+                    },
+                    cancelled: false 
+                });
+            });
+        });
+
+        if (!this.isUploading) {
+            this.processQueue();
+        }
+    }
+// ... existing code ...
+// ... existing code ...
+
 
     createUploadItem(file, referenceNode = null) {
         const itemEl = document.createElement('div');
@@ -128,6 +233,7 @@ export class UploadManager {
         };
     }
 
+    // ... existing code ...
     async processQueue() {
         if (this.queue.length === 0) {
             this.isUploading = false;
@@ -136,13 +242,11 @@ export class UploadManager {
 
         this.isUploading = true;
         
-        // Берем первый элемент, но не удаляем из массива сразу, чтобы иметь доступ к xhr
         const queueItem = this.queue[0]; 
-        const { file, uiItem } = queueItem;
         
-        // Если элемент уже был удален из DOM (пользователь нажал крестик до начала обработки), пропускаем
-        if (!document.body.contains(uiItem.element) || queueItem.cancelled) {
-            this.queue.shift(); // Удаляем из очереди
+        // Если элемент был удален или отменен
+        if ((queueItem.uiItem && !document.body.contains(queueItem.uiItem.element)) || queueItem.cancelled) {
+            this.queue.shift();
             this.processQueue();
             return;
         }
@@ -150,168 +254,137 @@ export class UploadManager {
         try {
             await this.startUpload(queueItem);
         } catch (err) {
-            if (err.message !== 'Cancelled') {
-                console.error("Ошибка при загрузке файла:", file.name, err);
-                uiItem.setError('Ошибка сети или сервера');
-            } else {
-                uiItem.setCancelled();
+            if (err.message !== 'Cancelled' && err.name !== 'AbortError') {
+                console.error("Ошибка при загрузке:", queueItem.file.name, err);
+                if (queueItem.uiItem) queueItem.uiItem.setError('Ошибка');
+                if (queueItem.parentUi) queueItem.parentUi.setError('Ошибка в файле: ' + queueItem.file.name);
             }
         } finally {
-            // Удаляем элемент из очереди только после завершения (успеха, ошибки или отмены)
             this.queue.shift();
             
-            // Пауза перед следующим файлом
+            // Увеличиваем паузу до 300мс, чтобы браузер успевал освобождать ресурсы
             setTimeout(() => {
                 this.processQueue();
-            }, 500);
+            }, 300); 
         }
     }
 
     async startUpload(queueItem) {
         return new Promise((resolve, reject) => {
             const file = queueItem.file;
-            const uiItem = queueItem.uiItem;
+            const uiItem = queueItem.uiItem; 
             
-            if (!uiItem) {
-                reject(new Error('UI item not found'));
-                return;
+            // Проверка отмены всей папки
+            if (queueItem.parentUi && queueItem.parentUi.element.classList.contains('cancelled')) {
+                 reject(new Error('Cancelled'));
+                 return;
             }
 
-            const cancelBtn = uiItem.element.querySelector('.cancel-btn');
-
             (async () => {
-                try {
-                    if (queueItem.cancelled) { 
-                        reject(new Error('Cancelled')); 
-                        return; 
-                    }
+                let retries = 3; // Количество попыток вычисления хеша
+                let hash = null;
 
-                    uiItem.setStatus('Вычисление хеша...');
-                    uiItem.setProgress(10);
-
-                    const hash = await computeFileHash(file);
-                    
-                    if (queueItem.cancelled) { 
-                        reject(new Error('Cancelled')); 
-                        return; 
-                    }
-
-                    uiItem.setStatus('Проверка...');
-                    uiItem.setProgress(30);
-
-                    const checkData = await checkFileExists(hash);
-                    
-                    if (queueItem.cancelled) { 
-                        reject(new Error('Cancelled')); 
-                        return; 
-                    }
-
-                    // Если файл существует И принадлежит текущему пользователю
-                    if (checkData.exists && checkData.owned) {
-                        uiItem.setStatus('Файл уже загружен');
-                        //uiItem.setSuccess();
-                        
-                        // // Вариант А: Сервер вернул полные данные
-                        // if (this.onUploadComplete && checkData.file_data) {
-                        //      this.onUploadComplete(checkData.file_data);
-                        // } 
-                        // Вариант Б: Сервер вернул только URL
-                        // else if (this.onUploadComplete && checkData.url) {
-                        //      const formatSize = (bytes) => {
-                        //          if (bytes === 0) return '0 B';
-                        //          const k = 1024;
-                        //          const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-                        //          const i = Math.floor(Math.log(bytes) / Math.log(k));
-                        //          return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-                        //      };
-
-                        //      const mockData = {
-                        //          short_id: checkData.url.split('/').pop(),
-                        //          filename: file.name,
-                        //          size: formatSize(file.size),
-                        //          date: new Date().toISOString().split('T')[0],
-                        //          downloads: 0,
-                        //          url: checkData.url
-                        //      };
-                        //      this.onUploadComplete(mockData);
-                        // }
-
-                        resolve();
-                        return;
-                    }
-                    
-                    // Если файл существует, но НЕ принадлежит текущему пользователю
-                    // или файла вообще нет - продолжаем загрузку
-                    uiItem.setStatus('Загрузка...');
-                    uiItem.setProgress(50);
-
-                    uploadFile(file, hash, 
-                        (pct) => { 
-                            if (!queueItem.cancelled) {
-                                uiItem.setProgress(50 + (pct / 2)); 
-                            }
-                        },
-                        (res) => {
-                            cancelBtn.onclick = null;
-                            if (queueItem.cancelled) { 
-                                reject(new Error('Cancelled')); 
-                                return; 
-                            }
-
-                            // ... existing code ...
-                            if (res && res.success) {
-                                // Проверяем, является ли это дубликатом
-                                if (res.message === 'Файл уже загружен') {
-                                    uiItem.setStatus('Файл уже загружен');
-                                } else {
-                                    uiItem.setSuccess();
-                                }
-                                
-                                // Заполняем прогресс-бар до конца визуально
-                                const bar = uiItem.element.querySelector('.progress-bar');
-                                if (bar) {
-                                    bar.style.width = '100%';
-                                    bar.style.backgroundColor = '#10b981'; // Зеленый цвет
-                                }
-                                uiItem.element.classList.add('success');
-
-                                // Добавляем в сетку ТОЛЬКО если это новый файл (нет сообщения о дубликате)
-                                // Или если вы хотите, чтобы дубликат "подсветился" в списке, можно оставить вызов, 
-                                // но addFileToGrid имеет защиту от дубликатов по ID.
-                                if (this.onUploadComplete && res.file_data && res.message !== 'Файл уже загружен') {
-                                    this.onUploadComplete(res.file_data);
-                                }
-                                
-                                resolve();
-                            } else {
-// ... existing code ...
-                                uiItem.setError(res?.error || 'Ошибка сервера');
-                                reject(new Error(res?.error));
-                            }
-                        },
-                        (err) => {
-                            cancelBtn.onclick = null;
-                            if (queueItem.cancelled || err.type === 'abort') {
-                                reject(new Error('Cancelled'));
-                            } else {
-                                uiItem.setError('Ошибка сети');
-                                reject(err);
-                            }
-                        },
-                        (xhr) => {
-                            queueItem.xhr = xhr;
-                            if (queueItem.cancelled) {
-                                xhr.abort();
-                            }
+                // Попытка вычислить хеш с повторами
+                while (retries > 0 && !hash) {
+                    try {
+                        if (queueItem.cancelled) { 
+                            reject(new Error('Cancelled')); 
+                            return; 
                         }
-                    );
-                } catch (err) {
-                    console.error('[UPLOAD] Exception in startUpload:', err);
-                    if (!queueItem.cancelled) {
-                        reject(err);
+
+                        if (uiItem) uiItem.setStatus(`Вычисление хеша... (Попытка ${4 - retries})`);
+                        hash = await computeFileHash(file);
+                    } catch (e) {
+                        retries--;
+                        console.warn(`[HASH] Retry attempt for ${file.name}. Left: ${retries}`);
+                        if (retries === 0) throw e; // Если попытки кончились, пробрасываем ошибку
+                        // Ждем немного перед повтором
+                        await new Promise(r => setTimeout(r, 500));
                     }
                 }
-            })();
+                    
+                if (queueItem.cancelled) { 
+                    reject(new Error('Cancelled')); 
+                    return; 
+                }
+
+                // 2. Проверяем на сервере
+                if (uiItem) uiItem.setStatus('Проверка...');
+                let folderPath = '';
+                if (file.webkitRelativePath) {
+                    const parts = file.webkitRelativePath.split('/');
+                    if (parts.length > 1) {
+                        // Берем все части пути кроме имени файла (последняя часть)
+                        // Например: "JS/Уроки по JS + html/revert string.js" -> "JS/Уроки по JS + html"
+                        folderPath = parts.slice(0, -1).join('/');
+                    }
+                }
+                const checkData = await checkFileExists(hash, folderPath);
+                
+                if (queueItem.cancelled) { 
+                    reject(new Error('Cancelled')); 
+                    return; 
+                }
+
+                if (checkData.exists && checkData.owned) {
+                    if (uiItem) uiItem.setStatus('Пропуск (уже есть)');
+                    if (queueItem.parentUi) queueItem.parentUi.updateProgress();
+                    resolve();
+                    return;
+                }
+                
+                // 3. Загружаем
+                // ... existing code ...
+
+                // 3. Загружаем
+                if (uiItem) uiItem.setStatus('Загрузка...');
+
+                uploadFile(file, hash, 
+                    (pct) => { 
+                        if (uiItem) uiItem.setProgress(50 + (pct / 2));
+                    },
+                    (res) => {
+                        if (queueItem.cancelled) { 
+                            reject(new Error('Cancelled')); 
+                            return; 
+                        }
+
+                        if (res && res.success) {
+                            if (this.onUploadComplete && res.file_data) {
+                                this.onUploadComplete(res.file_data);
+                            }
+                            
+                            if (queueItem.parentUi) {
+                                queueItem.parentUi.updateProgress();
+                            } else if (uiItem) {
+                                uiItem.setSuccess();
+                            }
+                            
+                            resolve();
+                        } else {
+                            const errorMsg = res.error || 'Upload failed';
+                            if (uiItem) uiItem.setError(errorMsg);
+                            reject(new Error(errorMsg));
+                        }
+                    },
+                    (err) => {
+                        if (uiItem) uiItem.setError(err.message);
+                        reject(err);
+                    },
+                    null, // onXhrReady - не нужен
+                    folderPath // <-- ДОБАВЛЕНО: передаём folderPath
+                );
+            })().catch(err => {
+                // Ловим ошибки из цикла while
+                if (err.message === 'Cancelled' || err.name === 'AbortError') {
+                    reject(new Error('Cancelled'));
+                } else {
+                    console.error('[UPLOAD] CRITICAL Exception in startUpload:', err);
+                    if (uiItem) uiItem.setError('Ошибка обработки');
+                    if (queueItem.parentUi) queueItem.parentUi.setError('Ошибка обработки');
+                    reject(err);
+                }
+            });
         });
     }
 }

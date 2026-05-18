@@ -9,7 +9,6 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Пытаемся загрузить dotenv, но не критично если его нет
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -17,123 +16,135 @@ except ImportError:
     pass
 
 # --- НАЧАЛО БЛОКА ЛОГИРОВАНИЯ ---
-log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'flask_debug.log')
-logging.basicConfig(
-    filename=log_file_path,
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-logger.info("--- FLASK SERVER RESTARTED & LOGGING INITIALIZED ---")
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Создаем файлы логов, если их нет
+server_log_path = os.path.join(base_dir, 'web_server.log')
+client_log_path = os.path.join(base_dir, 'web_client.log')
+
+# Настраиваем формат
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+
+# Логгер для сервера
+server_handler = logging.FileHandler(server_log_path)
+server_handler.setFormatter(formatter)
+server_handler.setLevel(logging.INFO)
+
+# Логгер для клиента
+client_handler = logging.FileHandler(client_log_path)
+client_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+client_handler.setLevel(logging.INFO)
+
+# Глобальные объекты логгеров
+server_logger = logging.getLogger('server_backend')
+server_logger.addHandler(server_handler)
+server_logger.setLevel(logging.INFO)
+
+client_logger = logging.getLogger('client_frontend')
+client_logger.addHandler(client_handler)
+client_logger.setLevel(logging.INFO)
+
+# Пишем первую запись сразу
+server_logger.info("--- FLASK SERVER STARTED & LOGGING TEST ---")
 # --- КОНЕЦ БЛОКА ЛОГИРОВАНИЯ ---
 
-# Добавляем текущую директорию в пути, чтобы Python видел пакет backend
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Импортируем функцию создания приложения из пакета backend
 from backend import create_app as backend_create_app 
 
 def create_app():
-    # 1. Создаем базовое приложение (маршруты, БД) через фабрику из backend
     app = backend_create_app()
     
-    # Разрешаем запросы с любых источников (для разработки)
+    # ВАЖНО: Добавляем наш хендлер в основной логгер приложения Flask
+    app.logger.addHandler(server_handler)
+    app.logger.setLevel(logging.INFO)
+    
     CORS(app, supports_credentials=True)
     
-    # --- RATE LIMITING ---
-    # Инициализируем лимитер
     limiter = Limiter(
         app=app,
-        key_func=get_remote_address,  # Ограничение по IP адресу
+        key_func=get_remote_address,
         default_limits=[
-            "200 per day",      # Максимум 200 запросов в день
-            "50 per hour"       # Максимум 50 запросов в час
+            "200 per day",
+            "50 per hour"
         ],
-        storage_uri="memory://",  # Хранение счетчиков в памяти
-        strategy="fixed-window"   # Стратегия ограничения
+        storage_uri="memory://",
+        strategy="fixed-window"
     )
     
-    logger.info("✓ Rate limiter initialized")
+    server_logger.info("✓ Rate limiter initialized")
     
-    # Сохраняем limiter в app для доступа из routes
     app.extensions['limiter'] = limiter
     
-    # --- Кастомный обработчик ошибок rate limit ---
     @app.errorhandler(429)
     def ratelimit_handler(e):
-        logger.warning(f"Rate limit exceeded for IP: {request.remote_addr}")
+        server_logger.warning(f"Rate limit exceeded for IP: {request.remote_addr}")
         return jsonify({
             'error': 'Rate limit exceeded',
             'message': 'Слишком много запросов. Пожалуйста, подождите немного.',
             'retry_after': str(e.description)
         }), 429
     
-    # --- БЕЗОПАСНАЯ НАСТРОЙКА SECRET_KEY ---
+    # --- ЭНДПОИНТ ДЛЯ КЛИЕНТСКИХ ЛОГОВ ---
+    @app.route('/api/log', methods=['POST'])
+    def client_log_endpoint():
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data'}), 400
+            
+            level = data.get('level', 'info').upper()
+            message = data.get('message', '')
+            details = data.get('details', '')
+            
+            log_message = f"[CLIENT] {message}"
+            if details:
+                log_message += f" | Details: {details}"
+            
+            if level == 'ERROR':
+                client_logger.error(log_message)
+            elif level == 'WARN':
+                client_logger.warning(log_message)
+            else:
+                client_logger.info(log_message)
+            
+            return jsonify({'success': True}), 200
+        except Exception as e:
+            server_logger.error(f"Failed to process client log: {e}")
+            return jsonify({'error': 'Internal error'}), 500
+    
     secret_key = os.environ.get('SECRET_KEY')
     
     if not secret_key:
-        # В production режиме категорически запрещаем запуск без SECRET_KEY
         if os.environ.get('FLASK_ENV') == 'production':
-            raise EnvironmentError(
-                "CRITICAL: SECRET_KEY environment variable is not set! "
-                "Please set it in your .env file or system environment. "
-                "Generate one with: python3 -c \"import secrets; print(secrets.token_hex(32))\""
-            )
+            raise EnvironmentError("SECRET_KEY is missing!")
         
-        # В development режиме генерируем временный ключ с предупреждением
-        logger.warning("⚠️  SECRET_KEY not set! Generating temporary key for development only.")
-        logger.warning("⚠️  DO NOT use this in production! Set SECRET_KEY in .env file.")
+        server_logger.warning("⚠️ SECRET_KEY not set! Using temporary key.")
         secret_key = os.urandom(32).hex()
     
     app.config['SECRET_KEY'] = secret_key
-    logger.info("✓ SECRET_KEY configured successfully")
+    server_logger.info("✓ SECRET_KEY configured")
     
-    # --- НАСТРОЙКИ СЕССИЙ ---
-    
-    # 1. Тип хранения: файловая система
     app.config['SESSION_TYPE'] = 'filesystem'
-    
-    # 2. Папка для файлов сессий
     session_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'flask_sessions')
     app.config['SESSION_FILE_DIR'] = session_dir
     os.makedirs(session_dir, exist_ok=True)
     
-    # 3. Делаем сессию постоянной
     app.config['SESSION_PERMANENT'] = True
-    
-    # 4. Срок жизни сессии (30 дней)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-
-     # --- ВАЖНЫЕ НАСТРОЙКИ ДЛЯ COOKIE ---
-    
-    # Имя куки
     app.config['SESSION_COOKIE_NAME'] = 'session'
-    
-    # Путь куки
     app.config['SESSION_COOKIE_PATH'] = '/'
-    
-    # HttpOnly: True запрещает доступ к куке из JavaScript
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    
-    # Secure: False для HTTP, True для HTTPS
     app.config['SESSION_COOKIE_SECURE'] = False 
-    
-    # Samesite
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
-    
-    # 5. Безопасность
     app.config['SESSION_USE_SIGNER'] = True
     
-    # 6. Инициализация расширения Flask-Session
     sess = Session()
     sess.init_app(app)
     
     return app
 
 if __name__ == '__main__':
-    # Создаем приложение с примененными настройками сессий
     app = create_app()
-    
-    # Запускаем сервер
     debug_mode = os.environ.get('FLASK_DEBUG', '1').lower() in ('1', 'true', 'yes')
     app.run(host='0.0.0.0', port=5000, debug=debug_mode)

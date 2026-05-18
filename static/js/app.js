@@ -1,4 +1,4 @@
-import { copyToClipboard } from './utils.js';
+import { copyToClipboard, showToast} from './utils.js';
 import {
     updateFileCount,
     renderFilesGrid,
@@ -11,25 +11,38 @@ import {
 import { initFileManager } from './fileManager.js';
 import { sortFiles } from './sortUtils.js';
 import { UploadManager } from './uploadManager.js';
+import { clientLogger } from './logger.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    clientLogger.info('Application initialized');
     // --- DOM Elements ---
     const fileInput = document.getElementById('fileInput');
+    const folderInput = document.getElementById('folderInput');
     const filesListContainer = document.getElementById('filesListContainer');
     const fileCountLabel = document.getElementById('fileCount');
     const fullscreenDropZone = document.getElementById('fullscreenDropZone');
+    
+    // Theme Elements
     const themeToggleBtn = document.getElementById('themeToggle');
     const iconMoon = document.getElementById('iconMoon');
     const iconSun = document.getElementById('iconSun');
     const themeText = document.getElementById('themeText');
     const htmlElement = document.documentElement;
+    
+    // Upload Buttons
     const uploadBtn = document.getElementById('uploadBtn');
+    const uploadFolderBtn = document.getElementById('uploadFolderBtn');
+    const mobileAddBtn = document.getElementById('mobileAddBtn');
 
     // Sort Elements
     const btnSort = document.getElementById('btnSort');
     const sortMenu = document.getElementById('sortMenu');
     const btnSortText = document.getElementById('btnSortText');
     
+    // User Menu Elements
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const userDropdown = document.getElementById('userDropdown');
+
     // --- State ---
     let allFiles = []; 
     let totalFilesCount = 0;
@@ -42,102 +55,75 @@ document.addEventListener('DOMContentLoaded', () => {
     let hasMoreFiles = true;
     let isLoadingBatch = false;
 
-    // --- User Menu Logic ---
-    const userMenuBtn = document.getElementById('userMenuBtn');
-    const userDropdown = document.getElementById('userDropdown');
-
-
-    const mobileAddBtn = document.getElementById('mobileAddBtn');
-    if (mobileAddBtn && fileInput) {
-        mobileAddBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
+    // --- НАВИГАЦИЯ ПО ПАПКАМ ---
+    let currentFolderPath = null; // null = корень
+    window.getCurrentFolder = () => currentFolderPath;
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    // Очистка кэша превью при выходе
-    const logoutLink = document.querySelector('.logout-item');
-    if (logoutLink) {
-        logoutLink.addEventListener('click', () => {
-            clearPreviewCache();
-        });
-    }
-    // Функция обновления иконок и текста
-    function updateThemeUI(isDark) {
-        if (isDark) {
-            iconMoon.classList.add('hidden');
-            iconSun.classList.remove('hidden');
-            themeText.textContent = 'Светлая тема';
+    function updateBreadcrumbs() {
+        const breadcrumbsContainer = document.getElementById('breadcrumbs');
+        if (!breadcrumbsContainer) return;
+        
+        if (!currentFolderPath) {
+            breadcrumbsContainer.innerHTML = '<span class="crumb active">🏠 Главная</span>';
         } else {
-            iconMoon.classList.remove('hidden');
-            iconSun.classList.add('hidden');
-            themeText.textContent = 'Тёмная тема';
+            // Разбиваем путь на части для навигации
+            const parts = currentFolderPath.split('/');
+            let crumbsHTML = '<span class="crumb" onclick="navigateToFolder(null)">🏠 Главная</span>';
+            
+            let accumulatedPath = '';
+            parts.forEach((part, index) => {
+                if (index > 0) {
+                    accumulatedPath += '/';
+                }
+                accumulatedPath += part;
+                
+                const isLast = index === parts.length - 1;
+                const pathValue = accumulatedPath;
+                
+                if (isLast) {
+                    crumbsHTML += `<span class="separator">/</span><span class="crumb active">📁 ${escapeHtml(part)}</span>`;
+                } else {
+                    crumbsHTML += `<span class="separator">/</span><span class="crumb" onclick="navigateToFolder('${escapeHtml(pathValue)}')">${escapeHtml(part)}</span>`;
+                }
+            });
+            
+            breadcrumbsContainer.innerHTML = crumbsHTML;
         }
     }
+    
 
-     // Проверка сохраненной темы при загрузке
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-        htmlElement.setAttribute('data-theme', savedTheme);
-        updateThemeUI(savedTheme === 'dark');
-    } else {
-        // Если нет сохранения, проверяем системные настройки
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        updateThemeUI(systemPrefersDark);
+    window.navigateToFolder = function(path) {
+        clientLogger.info(`Navigating to folder: ${path || 'Root'}`);
+        currentFolderPath = path;
+        currentPage = 1;
+        allFiles = [];
+        hasMoreFiles = true;
+        
+        filesListContainer.innerHTML = '<div class="spinner-wrapper"><div class="spinner"></div></div>';
+        filesListContainer.classList.add('loading');
+        
+        updateBreadcrumbs();
+        loadNextBatch();
+    };
+    // --- КОНЕЦ НАВИГАЦИИ ---
+
+    function updateThemeUI(isDark) {
+        if (isDark) {
+            if (iconMoon) iconMoon.classList.add('hidden');
+            if (iconSun) iconSun.classList.remove('hidden');
+            if (themeText) themeText.textContent = 'Светлая тема';
+        } else {
+            if (iconMoon) iconMoon.classList.remove('hidden');
+            if (iconSun) iconSun.classList.add('hidden');
+            if (themeText) themeText.textContent = 'Тёмная тема';
+        }
     }
-
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Чтобы меню не закрылось сразу
-            
-            const currentTheme = htmlElement.getAttribute('data-theme');
-            let newTheme;
-
-            if (currentTheme === 'dark') {
-                newTheme = 'light';
-            } else {
-                newTheme = 'dark';
-            }
-
-            htmlElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeUI(newTheme === 'dark');
-        });
-    }
-
-    if (userMenuBtn && userDropdown) {
-        userMenuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            
-            // 1. Если открыто меню сортировки - закрываем его
-            if (sortMenu && sortMenu.classList.contains('active')) {
-                sortMenu.classList.remove('active');
-                const sortDropdown = btnSort ? btnSort.closest('.sort-dropdown') : null;
-                if (sortDropdown) sortDropdown.classList.remove('active');
-                setTimeout(() => {
-                    if (sortMenu) sortMenu.classList.add('hidden');
-                }, 200);
-            }
-
-            // 2. Переключаем меню пользователя
-            userDropdown.classList.toggle('show');
-            userDropdown.classList.remove('hidden');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-                userDropdown.classList.remove('show');
-                setTimeout(() => {
-                    if (!userDropdown.classList.contains('show')) {
-                        userDropdown.classList.add('hidden');
-                    }
-                }, 200);
-            }
-        });
-    }
-
-    window.copyToClipboard = copyToClipboard;
-
-    // --- Helpers ---
 
     function updateSortButtonText() {
         if (!btnSortText) return;
@@ -160,29 +146,39 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSortText.textContent = `${fieldName}${orderName}`;
     }
 
+    // ... existing code ...
+
     function refreshGridFromState() {
-        const sortedFiles = sortFiles(allFiles, currentSortField, currentSortOrder);
-        renderFilesGrid(filesListContainer, sortedFiles);
-        updateFileCount(fileCountLabel, allFiles.length, totalFilesCount);
+        // 1. Сначала сортируем ВСЕ загруженные файлы
+        const sortedAllFiles = sortFiles(allFiles, currentSortField, currentSortOrder);
+        
+        let filesToShow = sortedAllFiles;
+        
+        // 2. Если мы внутри папки, показываем файлы этой папки И всех её подпапок
+        if (currentFolderPath) {
+            filesToShow = sortedAllFiles.filter(f => {
+                const folderPath = f.folder_path || '';
+                // Показываем файлы, которые находятся в текущей папке или её подпапках
+                return folderPath === currentFolderPath || folderPath.startsWith(currentFolderPath + '/');
+            });
+        }
+
+        renderFilesGrid(filesListContainer, filesToShow);
+        
+        // Обновляем счетчик: показываем количество отображаемых файлов
+        updateFileCount(fileCountLabel, filesToShow.length, totalFilesCount);
     }
+
+// ... existing code ...
 
     /**
      * Обработчик успешной загрузки файла из UploadManager
      */
-    // ... existing code ...
-    /**
-     * Обработчик успешной загрузки файла из UploadManager
-     */
-    // ... existing code ...
-    /**
-     * Обработчик успешной загрузки файла из UploadManager
-     */
-    // ... existing code ...
-    /**
-     * Обработчик успешной загрузки файла из UploadManager
-     */
     function handleFileUploaded(newFileData) {
-        // Проверяем, нет ли уже такого файла в массиве
+        // Если мы сейчас внутри папки, и новый файл не из этой папки, 
+        // он не появится в сетке до перезагрузки или выхода в корень.
+        // Это нормальное поведение.
+        
         const exists = allFiles.some(f => f.short_id === newFileData.short_id);
         
         if (!exists) {
@@ -193,85 +189,124 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshGridFromState();
         }
     }
-
-    // Обработчик удаления файлов
-// ... existing code ...
-
-    // Обработчик удаления файлов
-    window.addEventListener('filesDeleted', (event) => {
-        const deletedIds = event.detail.deletedIds;
-        
-        // Удаляем файлы из массива allFiles
-        allFiles = allFiles.filter(file => !deletedIds.includes(file.short_id));
-        
-        // Обновляем общее количество
-        if (typeof totalFilesCount !== 'undefined') {
-            totalFilesCount = Math.max(0, totalFilesCount - deletedIds.length);
-        }
-        
-        // Перерисовываем сетку
-        refreshGridFromState();
-    });
+    
 
     // --- Init Upload Manager ---
-// ... existing code ...
-
-    // --- Init Upload Manager ---
-    // Создаем менеджер загрузок ОДИН раз
     const uploadManager = new UploadManager(handleFileUploaded);
 
+    // --- Theme Logic ---
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        htmlElement.setAttribute('data-theme', savedTheme);
+        updateThemeUI(savedTheme === 'dark');
+    } else {
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        updateThemeUI(systemPrefersDark);
+    }
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            htmlElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeUI(newTheme === 'dark');
+        });
+    }
+
+    // --- User Menu Logic ---
+    if (userMenuBtn && userDropdown) {
+        userMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            if (sortMenu && sortMenu.classList.contains('active')) {
+                sortMenu.classList.remove('active');
+                const sortDropdown = btnSort ? btnSort.closest('.sort-dropdown') : null;
+                if (sortDropdown) sortDropdown.classList.remove('active');
+                setTimeout(() => {
+                    if (sortMenu) sortMenu.classList.add('hidden');
+                }, 200);
+            }
+
+            userDropdown.classList.toggle('show');
+            userDropdown.classList.remove('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+                userDropdown.classList.remove('show');
+                setTimeout(() => {
+                    if (!userDropdown.classList.contains('show')) {
+                        userDropdown.classList.add('hidden');
+                    }
+                }, 200);
+            }
+        });
+    }
+
+    // Очистка кэша превью при выходе
+    const logoutLink = document.querySelector('.logout-item');
+    if (logoutLink) {
+        logoutLink.addEventListener('click', () => {
+            clearPreviewCache();
+        });
+    }
+
+    window.copyToClipboard = copyToClipboard;
+
     // --- Pagination Logic ---
+        // ... existing code ...
 
     async function loadNextBatch() {
-        if (!hasMoreFiles || isLoadingBatch) return;
-        
-        isLoadingBatch = true;
-        
         try {
-            const limit = (currentPage === 1) ? INITIAL_LOAD_COUNT : BATCH_SIZE;
-            const data = await fetchFilesPage(currentPage, limit);
+            const response = await fetchFilesPage(currentPage, BATCH_SIZE, currentSortField, currentSortOrder, currentFolderPath);
             
-            if (data.files && data.files.length > 0) {
-                hasMoreFiles = data.has_more;
+            // Исправленная проверка: бэкенд возвращает объект с files, а не обязательно с success
+            if (response && response.files) {
+                const newFiles = response.files;
                 
-                // Сохраняем общее количество из API (только если оно пришло)
-                if (data.total !== undefined) {
-                    totalFilesCount = data.total;
+                if (newFiles.length === 0) {
+                    hasMoreFiles = false;
+                    if (allFiles.length === 0) {
+                        renderFilesGrid(filesListContainer, []);
+                    }
+                    return;
                 }
 
-
+                allFiles = [...allFiles, ...newFiles];
+                
                 if (currentPage === 1) {
-                    allFiles = data.files;
+                    renderFilesGrid(filesListContainer, allFiles);
                 } else {
-                    allFiles.push(...data.files);
+                    newFiles.forEach(file => addFileToGrid(filesListContainer, file));
                 }
-                
-                currentPage++;
-                
-                refreshGridFromState();
 
-                if (hasMoreFiles) {
-                    setTimeout(() => {
-                        isLoadingBatch = false;
-                        loadNextBatch();
-                    }, 1000);
+                // Используем total из ответа, если он есть, иначе считаем по allFiles
+                const total = response.total || allFiles.length;
+                updateFileCount(fileCountLabel, allFiles.length, total);
+                
+                if (newFiles.length < BATCH_SIZE) {
+                    hasMoreFiles = false;
                 } else {
-                    isLoadingBatch = false;
+                    currentPage++;
                 }
             } else {
-                hasMoreFiles = false;
-                isLoadingBatch = false;
-                refreshGridFromState(); 
+                clientLogger.error('Failed to load files batch', 'Invalid response format');
+                showToast('Ошибка формата данных от сервера', 'error');
             }
-        } catch (err) {
-            console.error("Ошибка загрузки пачки:", err);
+        } catch (error) {
+            clientLogger.error('Network error loading files', error.message);
+            showToast('Ошибка сети при загрузке файлов', 'error');
+        } finally {
             isLoadingBatch = false;
-            refreshGridFromState(); 
         }
     }
 
-    // --- Event Listeners: Sorting ---
+    // ... existing code ...
 
+    // --- Event Listeners: Sorting ---
     if (btnSort && sortMenu) {
         updateSortButtonText();
 
@@ -280,7 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const dropdown = btnSort.closest('.sort-dropdown');
             const isActive = sortMenu.classList.contains('active');
             
-            // Если открываем сортировку, закрываем меню пользователя
             if (!isActive && userDropdown) {
                 userDropdown.classList.remove('show');
                 setTimeout(() => {
@@ -305,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.addEventListener('click', (e) => {
             const dropdown = btnSort.closest('.sort-dropdown');
-            // Закрываем сортировку, если клик вне её И вне меню пользователя
             if (!sortMenu.contains(e.target) && e.target !== btnSort) {
                 sortMenu.classList.remove('active');
                 dropdown.classList.remove('active');
@@ -313,46 +346,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 1. Обработчики для кнопок выбора ПОЛЯ сортировки (Дата, Имя и т.д.)
         sortMenu.querySelectorAll('.sort-option').forEach(btn => {
             btn.addEventListener('click', () => {
                 const field = btn.getAttribute('data-field');
                 if (!field) return;
 
                 currentSortField = field;
-
-                // Обновляем визуальный класс active
                 sortMenu.querySelectorAll('.sort-option').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                // Сортируем и перерисовываем
                 refreshGridFromState();
                 updateSortButtonText();
 
-                // Закрываем меню после выбора
                 sortMenu.classList.remove('active');
                 btnSort.closest('.sort-dropdown').classList.remove('active');
                 setTimeout(() => sortMenu.classList.add('hidden'), 200);
             });
         });
         
-        // 2. Обработчики для кнопок выбора ПОРЯДКА (По возрастанию/убыванию)
         sortMenu.querySelectorAll('.sort-order-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const order = btn.getAttribute('data-order');
                 if (!order) return;
 
                 currentSortOrder = order;
-
-                // Обновляем визуальный класс active
                 sortMenu.querySelectorAll('.sort-order-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                // Сортируем и перерисовываем
                 refreshGridFromState();
                 updateSortButtonText();
 
-                // Закрываем меню после выбора
                 sortMenu.classList.remove('active');
                 btnSort.closest('.sort-dropdown').classList.remove('active');
                 setTimeout(() => sortMenu.classList.add('hidden'), 200);
@@ -362,22 +385,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners: Uploads & DragDrop ---
 
+    // 1. Обычные файлы
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+    }
+
     if (fileInput) {
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                // Передаем файлы в менеджер загрузок
                 uploadManager.addToQueue(Array.from(e.target.files));
-                e.target.value = ''; // Сбрасываем value, чтобы можно было выбрать тот же файл повторно
+                e.target.value = ''; 
             }
         });
     }
 
-    if (uploadBtn && fileInput) {
-        uploadBtn.addEventListener('click', () => {
+    // 2. Папки
+    if (uploadFolderBtn && folderInput) {
+        uploadFolderBtn.addEventListener('click', () => folderInput.click());
+    }
+
+    if (folderInput) {
+        folderInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadManager.addToQueue(Array.from(e.target.files));
+                e.target.value = ''; 
+            }
+        });
+    }
+
+    // 3. Мобильная кнопка
+    if (mobileAddBtn && fileInput) {
+        mobileAddBtn.addEventListener('click', () => {
             fileInput.click();
         });
     }
 
+    // 4. Drag and Drop
     ['dragenter', 'dragover'].forEach(evt => {
         document.body.addEventListener(evt, (e) => {
             e.preventDefault();
@@ -399,9 +442,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- File Deletion Handler ---
+    window.addEventListener('filesDeleted', (event) => {
+        const deletedIds = event.detail.deletedIds;
+        allFiles = allFiles.filter(file => !deletedIds.includes(file.short_id));
+        
+        if (typeof totalFilesCount !== 'undefined') {
+            totalFilesCount = Math.max(0, totalFilesCount - deletedIds.length);
+        }
+        
+        refreshGridFromState();
+    });
+
+    window.addEventListener('folderDeleted', (event) => {
+        const folderPath = event.detail.folderPath;
+        
+        allFiles = allFiles.filter(file => file.folder_path !== folderPath);
+        
+        totalFilesCount = allFiles.length; 
+        
+        refreshGridFromState();
+    });
+
     // --- Init ---
     initFileManager(filesListContainer, fileCountLabel);
     
-    // Запускаем загрузку файлов ТОЛЬКО ОДИН РАЗ
+    // Запускаем загрузку файлов
     loadNextBatch();
 });
