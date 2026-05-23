@@ -442,6 +442,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+     // Функция для рекурсивного чтения содержимого папки
+    function readDirectoryEntries(reader) {
+        return new Promise((resolve, reject) => {
+            reader.readEntries((entries) => {
+                if (entries.length === 0) {
+                    resolve([]);
+                } else {
+                    resolve(entries);
+                }
+            }, reject);
+        });
+    }
+
+    // Функция для получения всех файлов из DirectoryEntry
+    async function getAllFilesFromEntry(entry, path = '') {
+        const files = [];
+        
+        if (entry.isFile) {
+            const file = await new Promise((resolve, reject) => {
+                entry.file(resolve, reject);
+            });
+            
+            // Добавляем информацию о пути к файлу
+            Object.defineProperty(file, 'webkitRelativePath', {
+                value: path ? `${path}/${file.name}` : file.name,
+                writable: false
+            });
+            
+            files.push(file);
+        } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            let allEntries = [];
+            
+            // Читаем все записи (может потребоваться несколько вызовов)
+            while (true) {
+                const entries = await readDirectoryEntries(reader);
+                if (entries.length === 0) break;
+                allEntries = allEntries.concat(entries);
+            }
+            
+            // Рекурсивно обрабатываем все записи
+            for (const childEntry of allEntries) {
+                const newPath = path ? `${path}/${entry.name}` : entry.name;
+                const childFiles = await getAllFilesFromEntry(childEntry, newPath);
+                files.push(...childFiles);
+            }
+        }
+        
+        return files;
+    }
+
+    document.body.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        
+        if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) {
+            return;
+        }
+
+        // Проверяем, есть ли папки среди перетащенных элементов
+        const items = e.dataTransfer.items;
+        let hasDirectories = false;
+        
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.webkitGetAsEntry && item.webkitGetAsEntry().isDirectory) {
+                    hasDirectories = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasDirectories && items) {
+            // Обрабатываем папки через File System Access API
+            try {
+                const allFiles = [];
+                
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const entry = item.webkitGetAsEntry();
+                    
+                    if (entry) {
+                        const files = await getAllFilesFromEntry(entry);
+                        allFiles.push(...files);
+                    }
+                }
+                
+                if (allFiles.length > 0) {
+                    console.log(`[DND] Loaded ${allFiles.length} files from directories`);
+                    uploadManager.addToQueue(allFiles);
+                }
+            } catch (err) {
+                console.error('[DND] Error reading directories:', err);
+                showToast('Ошибка при чтении папок', 'error');
+            }
+        } else {
+            // Обычные файлы - используем существующую логику
+            uploadManager.addToQueue(Array.from(e.dataTransfer.files));
+        }
+    });
+
     document.body.addEventListener('drop', (e) => {
         e.preventDefault();
         if (e.dataTransfer.files.length > 0) {
