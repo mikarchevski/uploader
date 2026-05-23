@@ -269,38 +269,65 @@ export class UploadManager {
         }
     }
 
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
     async startUpload(queueItem) {
         return new Promise((resolve, reject) => {
             const file = queueItem.file;
             const uiItem = queueItem.uiItem; 
             
-            // Проверка отмены всей папки
             if (queueItem.parentUi && queueItem.parentUi.element.classList.contains('cancelled')) {
                  reject(new Error('Cancelled'));
                  return;
             }
 
             (async () => {
-                let retries = 3; // Количество попыток вычисления хеша
+                let retries = 3;
                 let hash = null;
+                let skipFile = false;
 
-                // Попытка вычислить хеш с повторами
-                while (retries > 0 && !hash) {
+                while (retries > 0 && !hash && !skipFile) {
                     try {
                         if (queueItem.cancelled) { 
                             reject(new Error('Cancelled')); 
                             return; 
                         }
 
-                        if (uiItem) uiItem.setStatus(`Вычисление хеша... (Попытка ${4 - retries})`);
+                        if (uiItem) uiItem.setStatus(`Вычисление хеша...`);
+                        
                         hash = await computeFileHash(file);
                     } catch (e) {
+                        if (e.message === 'FileNotReadable') {
+                            console.warn(`[UPLOAD] Skipping unreadable file: ${file.name}`);
+                            skipFile = true;
+                            break;
+                        }
+                        
                         retries--;
                         console.warn(`[HASH] Retry attempt for ${file.name}. Left: ${retries}`);
-                        if (retries === 0) throw e; // Если попытки кончились, пробрасываем ошибку
-                        // Ждем немного перед повтором
+                        if (retries === 0) {
+                            console.error(`[HASH] Failed to compute hash for ${file.name} after 3 attempts`, e);
+                            throw e;
+                        }
                         await new Promise(r => setTimeout(r, 500));
                     }
+                }
+
+                if (skipFile) {
+                    if (queueItem.parentUi) {
+                        queueItem.parentUi.updateProgress();
+                    } else if (uiItem) {
+                        uiItem.setStatus('⚠️ Пропущен');
+                        uiItem.setSuccess();
+                    }
+                    resolve();
+                    return;
                 }
                     
                 if (queueItem.cancelled) { 
@@ -308,14 +335,11 @@ export class UploadManager {
                     return; 
                 }
 
-                // 2. Проверяем на сервере
                 if (uiItem) uiItem.setStatus('Проверка...');
                 let folderPath = '';
                 if (file.webkitRelativePath) {
                     const parts = file.webkitRelativePath.split('/');
                     if (parts.length > 1) {
-                        // Берем все части пути кроме имени файла (последняя часть)
-                        // Например: "JS/Уроки по JS + html/revert string.js" -> "JS/Уроки по JS + html"
                         folderPath = parts.slice(0, -1).join('/');
                     }
                 }
@@ -333,10 +357,6 @@ export class UploadManager {
                     return;
                 }
                 
-                // 3. Загружаем
-                // ... existing code ...
-
-                // 3. Загружаем
                 if (uiItem) uiItem.setStatus('Загрузка...');
 
                 uploadFile(file, hash, 
@@ -371,11 +391,10 @@ export class UploadManager {
                         if (uiItem) uiItem.setError(err.message);
                         reject(err);
                     },
-                    null, // onXhrReady - не нужен
-                    folderPath // <-- ДОБАВЛЕНО: передаём folderPath
+                    null,
+                    folderPath
                 );
             })().catch(err => {
-                // Ловим ошибки из цикла while
                 if (err.message === 'Cancelled' || err.name === 'AbortError') {
                     reject(new Error('Cancelled'));
                 } else {

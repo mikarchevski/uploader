@@ -14,9 +14,16 @@ export function formatBytes(bytes) {
 /**
  * Вычисляет SHA-256 хеш файла
  */
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
 export async function computeFileHash(file) {
     try {
-        // Проверяем, доступен ли файл вообще
         if (!file || file.size === undefined) {
             throw new Error("Invalid file object");
         }
@@ -28,13 +35,22 @@ export async function computeFileHash(file) {
         return hashHex;
     } catch (error) {
         if (error.name === 'AbortError' || error.message.includes('aborted')) {
-            console.warn(`[HASH] Operation aborted for file: ${file.name}`);
-            throw new Error('Cancelled'); // Пробрасываем как отмену, чтобы не пугать пользователя
+            console.error(`[HASH] File cannot be read: ${file.name} (size: ${file.size}, type: ${file.type})`, error);
+            throw new Error('FileNotReadable');
         }
         console.error(`[HASH] Error computing hash for ${file.name}:`, error);
+        console.error(`[HASH] Error details - Name: ${error.name}, Message: ${error.message}`);
         throw error;
     }
 }
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
 
 // ... existing code ...
 

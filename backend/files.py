@@ -386,6 +386,9 @@ def register_file_routes(app):
             return jsonify({'error': str(e)}), 500
 
     # --- МАССОВОЕ УДАЛЕНИЕ / УДАЛЕНИЕ ПАПОК ---
+    # ... existing code ...
+
+    # --- МАССОВОЕ УДАЛЕНИЕ / УДАЛЕНИЕ ПАПОК ---
     @app.route('/api/delete/bulk', methods=['POST'])
     @rate_limit("10 per minute")
     def delete_bulk_files():
@@ -406,8 +409,15 @@ def register_file_routes(app):
                 with sqlite3.connect(DB_PATH) as conn:
                     conn.row_factory = sqlite3.Row
                     c = conn.cursor()
-                    c.execute('SELECT * FROM files WHERE owner_id = ? AND folder_path = ?', (user_id, folder_path))
+                    # Исправлено: выбираем файлы из папки и всех её подпапок
+                    c.execute('''
+                        SELECT * FROM files 
+                        WHERE owner_id = ? 
+                        AND (folder_path = ? OR folder_path LIKE ?)
+                    ''', (user_id, folder_path, folder_path + '/%'))
                     files_to_delete = [dict(row) for row in c.fetchall()]
+                
+                logger.info(f"[BULK DELETE] Found {len(files_to_delete)} files to delete")
                 
                 for file_data in files_to_delete:
                     s_id = file_data['short_id']
@@ -415,12 +425,16 @@ def register_file_routes(app):
                     u_name = file_data['unique_name']
                     f_path = os.path.join(UPLOAD_FOLDER, u_name)
                     
-                    delete_file_by_short_id(s_id)
-                    deleted_ids.append(s_id)
-                    
-                    remaining = get_files_by_hash(f_hash)
-                    if len(remaining) == 0 and os.path.exists(f_path):
-                        os.remove(f_path)
+                    try:
+                        delete_file_by_short_id(s_id)
+                        deleted_ids.append(s_id)
+                        
+                        remaining = get_files_by_hash(f_hash)
+                        if len(remaining) == 0 and os.path.exists(f_path):
+                            os.remove(f_path)
+                            logger.debug(f"[BULK DELETE] Removed physical file: {u_name}")
+                    except Exception as file_err:
+                        logger.error(f"[BULK DELETE] Error deleting file {s_id}: {file_err}")
                         
             elif 'ids' in data:
                 logger.info(f"[BULK DELETE] User: {user_id} | Count: {len(data['ids'])}")
@@ -447,7 +461,6 @@ def register_file_routes(app):
             import traceback
             logger.error(traceback.format_exc())
             return jsonify({'error': str(e)}), 500
-
     # --- СКАЧИВАНИЕ ---
     @app.route('/d/<short_id>')
     def download_short(short_id):

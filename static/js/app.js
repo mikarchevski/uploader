@@ -404,14 +404,21 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadFolderBtn.addEventListener('click', () => folderInput.click());
     }
 
+    // ... existing code ...
+
     if (folderInput) {
         folderInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                uploadManager.addToQueue(Array.from(e.target.files));
-                e.target.value = ''; 
+                const files = Array.from(e.target.files);
+                uploadManager.addToQueue(files);
+                setTimeout(() => {
+                    e.target.value = '';
+                }, 2000);
             }
         });
     }
+
+// ... existing code ...
 
     // 3. Мобильная кнопка
     if (mobileAddBtn && fileInput) {
@@ -454,15 +461,38 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshGridFromState();
     });
 
+    // ... existing code ...
+
+    // ... existing code ...
+
     window.addEventListener('folderDeleted', (event) => {
         const folderPath = event.detail.folderPath;
         
-        allFiles = allFiles.filter(file => file.folder_path !== folderPath);
+        console.log(`[APP] folderDeleted event received for: ${folderPath}`);
+        console.log(`[APP] Files before filter: ${allFiles.length}`);
+        
+        const filesBefore = allFiles.length;
+        
+        allFiles = allFiles.filter(file => {
+            const fileFolder = file.folder_path || '';
+            
+            if (fileFolder === folderPath) return false;
+            if (fileFolder.startsWith(folderPath + '/')) return false;
+            
+            return true;
+        });
+        
+        const filesRemoved = filesBefore - allFiles.length;
+        console.log(`[APP] Files after filter: ${allFiles.length} (removed ${filesRemoved})`);
         
         totalFilesCount = allFiles.length; 
         
         refreshGridFromState();
     });
+
+// ... existing code ...
+
+// ... existing code ...
 
     // --- Init ---
     initFileManager(filesListContainer, fileCountLabel);
