@@ -20,6 +20,7 @@ def init_db():
                 file_size INTEGER NOT NULL,
                 upload_date TEXT NOT NULL,
                 owner_id INTEGER,
+                folder_path TEXT DEFAULT '', 
                 FOREIGN KEY(owner_id) REFERENCES users(id)
             )
         ''')
@@ -37,6 +38,13 @@ def init_db():
         except sqlite3.OperationalError:
             print("Adding download_count column to files table...")
             c.execute("ALTER TABLE files ADD COLUMN download_count INTEGER DEFAULT 0")
+
+        # Проверка и добавление колонки folder_path, если она отсутствует
+        try:
+            c.execute("SELECT folder_path FROM files LIMIT 1")
+        except sqlite3.OperationalError:
+            print("Adding folder_path column to files table...")
+            c.execute("ALTER TABLE files ADD COLUMN folder_path TEXT DEFAULT ''")
 
          # Новая таблица пользователей
         c.execute('''
@@ -71,14 +79,14 @@ def get_file_by_short_id(short_id):
         row = c.fetchone()
         return dict(row) if row else None
 
-def insert_file(short_id, unique_name, original_filename, file_hash, file_size, owner_id=None):
+def insert_file(short_id, unique_name, original_filename, file_hash, file_size, owner_id=None, folder_path=''):
     """Добавляет новый файл в базу данных."""
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute('''
-            INSERT INTO files (short_id, unique_name, original_filename, file_hash, file_size, upload_date, owner_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (short_id, unique_name, original_filename, file_hash, file_size, datetime.now().isoformat(), owner_id))
+            INSERT INTO files (short_id, unique_name, original_filename, file_hash, file_size, upload_date, owner_id, folder_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (short_id, unique_name, original_filename, file_hash, file_size, datetime.now().isoformat(), owner_id, folder_path))
         conn.commit()
 
 def increment_download_count(short_id):
@@ -96,22 +104,40 @@ def list_all_files():
         c.execute('SELECT short_id, original_filename, file_size, upload_date, download_count FROM files ORDER BY upload_date DESC')
         return [dict(row) for row in c.fetchall()]
 
+# ... existing code ...
+# ... existing code ...
 def list_files_by_user(user_id):
     """Возвращает список файлов конкретного пользователя."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
-        # Если user_id None, возвращаем пустой список (или можно вернуть публичные файлы, если захочешь)
         if not user_id:
             return []
             
-        c.execute('''
-            SELECT short_id, original_filename, file_size, upload_date, download_count 
-            FROM files 
-            WHERE owner_id = ? 
-            ORDER BY upload_date DESC
-        ''', (user_id,))
-        return [dict(row) for row in c.fetchall()]
+        # Убедись, что folder_path здесь есть!
+        try:
+            c.execute('''
+                SELECT short_id, original_filename, file_size, upload_date, download_count, folder_path 
+                FROM files 
+                WHERE owner_id = ? 
+                ORDER BY upload_date DESC
+            ''', (user_id,))
+            return [dict(row) for row in c.fetchall()]
+        except sqlite3.OperationalError as e:
+            print(f"[DB ERROR] SQL Query failed: {e}")
+            # Если колонки нет, пробуем запрос без неё (для совместимости)
+            c.execute('''
+                SELECT short_id, original_filename, file_size, upload_date, download_count 
+                FROM files 
+                WHERE owner_id = ? 
+                ORDER BY upload_date DESC
+            ''', (user_id,))
+            rows = [dict(row) for row in c.fetchall()]
+            for r in rows:
+                r['folder_path'] = ''
+            return rows
+# ... existing code ...
+# ... existing code ...
 def get_user_by_username(username):
     """Получает пользователя по имени."""
     with sqlite3.connect(DB_PATH) as conn:

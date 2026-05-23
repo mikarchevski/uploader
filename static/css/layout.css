@@ -115,3 +115,8 @@ body {
         text-align: center;
     }
 }
+
+.crumb { cursor: pointer; transition: color 0.2s; }
+.crumb:hover { color: var(--primary-color); text-decoration: underline; }
+.crumb.active { font-weight: bold; color: var(--text-primary); cursor: default; }
+.separator { margin: 0 5px; opacity: 0.5; }

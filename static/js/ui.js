@@ -1,5 +1,6 @@
 // ui.js
 import { getIconForFile } from './utils.js';
+import { clientLogger } from './logger.js';
 
 /**
  * Экранирует HTML-символы для защиты от XSS
@@ -7,6 +8,7 @@ import { getIconForFile } from './utils.js';
  * @returns {string} Безопасный текст
  */
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -14,13 +16,8 @@ function escapeHtml(text) {
 
 // === КЭШИРОВАНИЕ ПРЕВЬЮ ===
 const PREVIEW_CACHE_KEY = 'file_preview_cache';
-const CACHE_EXPIRY_HOURS = 24; // Кэш действует 24 часа
+const CACHE_EXPIRY_HOURS = 24;
 
-/**
- * Получает превью из кэша
- * @param {string} shortId - ID файла
- * @returns {string|null} Base64 превью или null
- */
 function getCachedPreview(shortId) {
     try {
         const cache = JSON.parse(localStorage.getItem(PREVIEW_CACHE_KEY) || '{}');
@@ -28,13 +25,11 @@ function getCachedPreview(shortId) {
         
         if (!cached) return null;
         
-        // Проверяем срок действия кэша
         const cachedTime = new Date(cached.timestamp);
         const now = new Date();
         const hoursDiff = (now - cachedTime) / (1000 * 60 * 60);
         
         if (hoursDiff > CACHE_EXPIRY_HOURS) {
-            // Кэш устарел, удаляем
             delete cache[shortId];
             localStorage.setItem(PREVIEW_CACHE_KEY, JSON.stringify(cache));
             return null;
@@ -42,24 +37,17 @@ function getCachedPreview(shortId) {
         
         return cached.preview;
     } catch (e) {
-        console.warn('Failed to read preview cache:', e);
+        clientLogger.warn('Failed to read preview cache', e.message);
         return null;
     }
 }
 
-/**
- * Сохраняет превью в кэш
- * @param {string} shortId - ID файла
- * @param {string} preview - Base64 превью
- */
 function savePreviewToCache(shortId, preview) {
     try {
         const cache = JSON.parse(localStorage.getItem(PREVIEW_CACHE_KEY) || '{}');
         
-        // Ограничиваем размер кэша (максимум 50 превью)
         const keys = Object.keys(cache);
         if (keys.length >= 50) {
-            // Удаляем самое старое превью
             const oldestKey = keys.reduce((a, b) => 
                 new Date(cache[a].timestamp) < new Date(cache[b].timestamp) ? a : b
             );
@@ -73,21 +61,17 @@ function savePreviewToCache(shortId, preview) {
         
         localStorage.setItem(PREVIEW_CACHE_KEY, JSON.stringify(cache));
     } catch (e) {
-        console.warn('Failed to save preview to cache:', e);
-        // Если localStorage переполнен, очищаем весь кэш
+        clientLogger.warn('Failed to save preview to cache', e.message);
         if (e.name === 'QuotaExceededError') {
             localStorage.removeItem(PREVIEW_CACHE_KEY);
-            console.log('Preview cache cleared due to quota exceeded');
+            clientLogger.info('Preview cache cleared due to quota exceeded');
         }
     }
 }
 
-/**
- * Очищает весь кэш превью
- */
 export function clearPreviewCache() {
     localStorage.removeItem(PREVIEW_CACHE_KEY);
-    console.log('Preview cache cleared');
+    clientLogger.info('Preview cache cleared');
 }
 // === КОНЕЦ КЭШИРОВАНИЯ ===
 
@@ -99,45 +83,202 @@ export function updateFileCount(element, count, total = null) {
     element.textContent = `${displayCount} ${word}`;
 }
 
-/**
- * Рендерит сетку файлов
- */
-export function renderFilesGrid(filesListContainer, files) {
-    // 1. ЖЕСТКО убираем спиннер из DOM, если он есть
-    const spinnerWrapper = filesListContainer.querySelector('.spinner-wrapper');
-    if (spinnerWrapper) {
-        spinnerWrapper.remove();
-    }
+// --- ФУНКЦИИ LIGHTBOX ---
+// --- ФУНКЦИИ LIGHTBOX ---
+function openImageModal(src, filename) {
+    clientLogger.info(`Opening image modal: ${filename}`);
     
-    // 2. Снимаем класс loading
-    filesListContainer.classList.remove('loading');
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    const captionText = document.getElementById('caption');
+    const closeBtn = document.querySelector('#imageModal .close-modal');
 
-    // 3. Если файлов нет, показываем заглушку
-    if (!files || files.length === 0) {
-        filesListContainer.innerHTML = `
-            <div class="no-files">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">📂</div>
-                <h3>Здесь пока пусто</h3>
-                <p>Загрузите свой первый файл, чтобы он появился здесь.</p>
-            </div>
-        `;
+    if (!modal) {
+        clientLogger.error('Lightbox modal elements not found in DOM');
         return;
     }
 
-    // 4. Если файлы есть, рендерим их
+    // Удаляем класс hidden и показываем модальное окно
+    modal.classList.remove('hidden');
+    modal.style.display = "block";
+    modalImg.src = src;
+    captionText.innerHTML = escapeHtml(filename);
+
+    // Закрытие по крестику
+    closeBtn.onclick = function() { 
+        modal.style.display = "none";
+        modal.classList.add('hidden');
+        modalImg.src = "";
+    }
+
+    // Закрытие по клику вне картинки
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            modal.style.display = "none";
+            modal.classList.add('hidden');
+            modalImg.src = "";
+        }
+    }
+    
+    // Закрытие по Esc
+    document.addEventListener('keydown', function closeModalOnEsc(e) {
+        if (e.key === "Escape") {
+            modal.style.display = "none";
+            modal.classList.add('hidden');
+            modalImg.src = "";
+            document.removeEventListener('keydown', closeModalOnEsc);
+        }
+    });
+}
+
+function openVideoModal(videoUrl, filename) {
+    clientLogger.info(`Opening video modal: ${filename}`);
+    
+    const modal = document.getElementById('videoModal');
+    const modalVideo = document.getElementById('modalVideo');
+    const captionText = document.getElementById('videoCaption');
+    const closeBtn = document.getElementById('closeVideoModal');
+
+    if (!modal) {
+        clientLogger.error('Video modal elements not found in DOM');
+        return;
+    }
+
+    // Показываем модальное окно
+    modal.classList.remove('hidden');
+    modal.style.display = "block";
+    
+    // Устанавливаем источник видео и запускаем воспроизведение
+    modalVideo.src = videoUrl;
+    modalVideo.load();
+    captionText.innerHTML = escapeHtml(filename);
+    
+    // Автозапуск видео
+    modalVideo.play().catch(e => {
+        clientLogger.warn('Autoplay failed:', e.message);
+    });
+
+    // Закрытие по крестику
+    closeBtn.onclick = function() { 
+        modalVideo.pause();
+        modalVideo.src = "";
+        modal.style.display = "none";
+        modal.classList.add('hidden');
+    }
+
+    // Закрытие по клику вне видео
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            modalVideo.pause();
+            modalVideo.src = "";
+            modal.style.display = "none";
+            modal.classList.add('hidden');
+        }
+    }
+    
+    // Закрытие по Esc
+    document.addEventListener('keydown', function closeVideoOnEsc(e) {
+        if (e.key === "Escape") {
+            modalVideo.pause();
+            modalVideo.src = "";
+            modal.style.display = "none";
+            modal.classList.add('hidden');
+            document.removeEventListener('keydown', closeVideoOnEsc);
+        }
+    });
+}
+
+export function attachDoubleClick(card, file) {
+    const ext = file.filename.split('.').pop().toLowerCase();
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'];
+    
+    if (imageExts.includes(ext)) {
+        card.style.cursor = 'zoom-in';
+        card.addEventListener('dblclick', () => {
+            openImageModal(file.url, file.filename);
+        });
+    } else if (videoExts.includes(ext)) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('dblclick', () => {
+            openVideoModal(file.url, file.filename);
+        });
+    }
+}
+// --- КОНЕЦ LIGHTBOX ---
+
+
+// --- КОНЕЦ LIGHTBOX ---
+
+export function renderFilesGrid(filesListContainer, files) {
+    const currentFolder = window.getCurrentFolder ? window.getCurrentFolder() : null;
+    clientLogger.info(`Rendering grid: ${files.length} files`, currentFolder ? `in folder: ${currentFolder}` : 'in root');
+
+    const spinnerWrapper = filesListContainer.querySelector('.spinner-wrapper');
+    if (spinnerWrapper) spinnerWrapper.remove();
+    filesListContainer.classList.remove('loading');
+
+    if (!files || files.length === 0) {
+        const isInFolder = window.getCurrentFolder && window.getCurrentFolder();
+        filesListContainer.innerHTML = `<div class="no-files"><h3>${isInFolder ? 'Папка пуста' : 'Здесь пока пусто'}</h3></div>`;
+        return;
+    }
+
     const fragment = document.createDocumentFragment();
 
-    for (const file of files) {
-        let card = filesListContainer.querySelector(`.file-card[data-short-id="${file.short_id}"]`);
+    if (currentFolder) {
+        const subfolders = {};
+        const directFiles = [];
 
-        if (!card) {
-            const icon = getIconForFile(file.filename);
-            card = document.createElement('div');
+        files.forEach(file => {
+            const filePath = file.folder_path || '';
+            
+            if (filePath === currentFolder) {
+                directFiles.push(file);
+            } 
+            else if (filePath.startsWith(currentFolder + '/')) {
+                const relativePath = filePath.substring(currentFolder.length + 1);
+                
+                const subfolderName = relativePath.split('/')[0];
+                const subfolderPath = currentFolder + '/' + subfolderName;
+                
+                if (!subfolders[subfolderPath]) {
+                    subfolders[subfolderPath] = {
+                        name: subfolderName,
+                        path: subfolderPath,
+                        count: 0
+                    };
+                }
+                subfolders[subfolderPath].count++;
+            }
+        });
+
+        Object.values(subfolders).forEach(folder => {
+            const folderCard = document.createElement('div');
+            folderCard.className = 'file-card folder-card';
+            folderCard.setAttribute('data-folder-path', folder.path);
+            folderCard.innerHTML = `
+                <div class="file-icon-placeholder">📁</div>
+                <div class="file-details">
+                    <div class="file-card-name">${escapeHtml(folder.name)}</div>
+                    <div class="file-card-meta">
+                        <span>${folder.count} файлов</span>
+                        <span>Папка</span>
+                    </div>
+                </div>
+            `;
+            fragment.appendChild(folderCard);
+        });
+
+        directFiles.forEach(file => {
+            const card = document.createElement('div');
             card.className = 'file-card';
             card.setAttribute('data-short-id', file.short_id);
             
-            // БЕЗОПАСНАЯ вставка имени файла через escapeHtml
-            const safeFilename = escapeHtml(file.filename);
+            const icon = getIconForFile(file.filename);
+            const displayName = file.filename.includes('/') ? file.filename.split('/').pop() : file.filename;
+            const safeFilename = escapeHtml(displayName);
+            
             card.innerHTML = `
                 <div class="file-icon-placeholder">${icon}</div>
                 <div class="file-details">
@@ -148,49 +289,104 @@ export function renderFilesGrid(filesListContainer, files) {
                     </div>
                 </div>
             `;
-            // Запускаем загрузку превью для новых карточек
+            fragment.appendChild(card);
             loadPreviewForCard(card, file.short_id);
-        }
+            
+            // Добавляем обработчик двойного клика
+            attachDoubleClick(card, file);
+        });
 
-        fragment.appendChild(card);
+    } else {
+        const folders = {};
+        const rootFiles = [];
+
+        files.forEach(file => {
+            if (file.folder_path && file.folder_path.trim() !== '') {
+                const firstLevelFolder = file.folder_path.split('/')[0];
+                
+                if (!folders[firstLevelFolder]) {
+                    folders[firstLevelFolder] = {
+                        name: firstLevelFolder,
+                        path: firstLevelFolder,
+                        count: 0
+                    };
+                }
+                folders[firstLevelFolder].count++;
+            } else {
+                rootFiles.push(file);
+            }
+        });
+
+        Object.values(folders).forEach(folder => {
+            const folderCard = document.createElement('div');
+            folderCard.className = 'file-card folder-card';
+            folderCard.setAttribute('data-folder-path', folder.path);
+            folderCard.innerHTML = `
+                <div class="file-icon-placeholder">📁</div>
+                <div class="file-details">
+                    <div class="file-card-name">${escapeHtml(folder.name)}</div>
+                    <div class="file-card-meta">
+                        <span>${folder.count} файлов</span>
+                        <span>Папка</span>
+                    </div>
+                </div>
+            `;
+            fragment.appendChild(folderCard);
+        });
+
+        rootFiles.forEach(file => {
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            card.setAttribute('data-short-id', file.short_id);
+            const icon = getIconForFile(file.filename);
+            const safeFilename = escapeHtml(file.filename);
+            card.innerHTML = `
+                <div class="file-icon-placeholder">${icon}</div>
+                <div class="file-details">
+                    <div class="file-card-name">${safeFilename}</div>
+                    <div class="file-card-meta">
+                        <span>${file.size}</span>
+                        <span>${file.date}</span>
+                    </div>
+                </div>
+            `;
+            fragment.appendChild(card);
+            loadPreviewForCard(card, file.short_id);
+            
+            // Добавляем обработчик двойного клика
+            attachDoubleClick(card, file);
+        });
     }
 
     filesListContainer.innerHTML = ''; 
     filesListContainer.appendChild(fragment);
 }
 
-/**
- * Загружает превью для конкретной карточки (с кэшированием)
- */
 async function loadPreviewForCard(card, shortId) {
-    // Сначала проверяем кэш
     const cachedPreview = getCachedPreview(shortId);
     if (cachedPreview) {
         applyPreviewToCard(card, cachedPreview);
         return;
     }
     
-    // Если нет в кэше, запрашиваем с сервера
     try {
         const res = await fetch(`/api/preview/${shortId}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+            clientLogger.warn(`Preview fetch failed for ${shortId}: status ${res.status}`);
+            return;
+        }
         
         const data = await res.json();
         
         if (data.has_preview && data.preview) {
-            // Сохраняем в кэш
             savePreviewToCache(shortId, data.preview);
-            // Применяем к карточке
             applyPreviewToCard(card, data.preview);
         }
     } catch (e) {
-        console.warn("Ошибка загрузки превью", e);
+        clientLogger.error('Ошибка загрузки превью', e.message);
     }
 }
 
-/**
- * Применяет превью к карточке файла
- */
 function applyPreviewToCard(card, previewData) {
     const placeholder = card.querySelector('.file-icon-placeholder');
     if (placeholder) {
@@ -203,35 +399,73 @@ function applyPreviewToCard(card, previewData) {
     }
 }
 
-/**
- * Добавляет один файл в начало сетки
- */
 export async function addFileToGrid(filesListContainer, fileData) {
-    const noFilesMsg = filesListContainer.querySelector('.no-files');
-    if (noFilesMsg) noFilesMsg.remove();
+    if (fileData.folder_path && fileData.folder_path.trim() !== '') {
+        const folderPath = fileData.folder_path;
+        let folderCard = filesListContainer.querySelector(`.file-card[data-folder-path="${escapeHtml(folderPath)}"]`);
+        
+        if (!folderCard) {
+            const folderName = folderPath.split('/').pop();
+            folderCard = document.createElement('div');
+            folderCard.className = 'file-card folder-card';
+            folderCard.setAttribute('data-folder-path', folderPath);
+            folderCard.setAttribute('data-file-count', '1');
+            
+            folderCard.innerHTML = `
+                <div class="file-icon-placeholder">📁</div>
+                <div class="file-details">
+                    <div class="file-card-name" title="${escapeHtml(folderName)}">${escapeHtml(folderName)}</div>
+                    <div class="file-card-meta">
+                        <span class="folder-file-count">1 файл</span>
+                        <span>Папка</span>
+                    </div>
+                </div>
+            `;
+            
+            filesListContainer.insertBefore(folderCard, filesListContainer.firstChild);
+        } else {
+            let count = parseInt(folderCard.getAttribute('data-file-count') || '0') + 1;
+            folderCard.setAttribute('data-file-count', count);
+            
+            const countEl = folderCard.querySelector('.folder-file-count');
+            if (countEl) {
+                const word = count === 1 ? 'файл' : (count >= 2 && count <= 4 ? 'файла' : 'файлов');
+                countEl.textContent = `${count} ${word}`;
+            }
+        }
+    } else {
+        const noFilesMsg = filesListContainer.querySelector('.no-files');
+        if (noFilesMsg) noFilesMsg.remove();
 
-    if (filesListContainer.querySelector(`.file-card[data-short-id="${fileData.short_id}"]`)) {
-        return;
-    }
+        if (filesListContainer.querySelector(`.file-card[data-short-id="${fileData.short_id}"]`)) {
+            return;
+        }
 
-    const icon = getIconForFile(fileData.filename);
-    const newCard = document.createElement('div');
-    newCard.className = 'file-card';
-    newCard.setAttribute('data-short-id', fileData.short_id);
-    
-    // БЕЗОПАСНАЯ вставка имени файла через escapeHtml
-    const safeFilename = escapeHtml(fileData.filename);
-    newCard.innerHTML = `
-        <div class="file-icon-placeholder">${icon}</div>
-        <div class="file-details">
-            <div class="file-card-name" title="${safeFilename}">${safeFilename}</div>
-            <div class="file-card-meta">
-                <span>${escapeHtml(fileData.size)}</span>
-                <span>${escapeHtml(fileData.date)}</span>
+        const icon = getIconForFile(fileData.filename);
+        const newCard = document.createElement('div');
+        newCard.className = 'file-card';
+        newCard.setAttribute('data-short-id', fileData.short_id);
+        
+        const safeFilename = escapeHtml(fileData.filename);
+        newCard.innerHTML = `
+            <div class="file-icon-placeholder">${icon}</div>
+            <div class="file-details">
+                <div class="file-card-name" title="${safeFilename}">${safeFilename}</div>
+                <div class="file-card-meta">
+                    <span>${escapeHtml(fileData.size)}</span>
+                    <span>${escapeHtml(fileData.date)}</span>
+                </div>
             </div>
-        </div>
-    `;
-    
-    filesListContainer.insertBefore(newCard, filesListContainer.firstChild);
-    loadPreviewForCard(newCard, fileData.short_id);
+        `;
+        
+        const firstFolder = filesListContainer.querySelector('.folder-card');
+        if (firstFolder) {
+            filesListContainer.insertBefore(newCard, firstFolder); 
+        } else {
+            filesListContainer.insertBefore(newCard, filesListContainer.firstChild);
+        }
+        
+        loadPreviewForCard(newCard, fileData.short_id);
+        attachDoubleClick(newCard, fileData);
+    }
 }

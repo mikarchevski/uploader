@@ -23,11 +23,36 @@ export function formatBytes(bytes) {
 // ... existing code ...
 
 export async function computeFileHash(file) {
-    const buffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    try {
+        if (!file || file.size === undefined) {
+            throw new Error("Invalid file object");
+        }
+
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
+    } catch (error) {
+        if (error.name === 'AbortError' || error.message.includes('aborted')) {
+            console.error(`[HASH] File cannot be read: ${file.name} (size: ${file.size}, type: ${file.type})`, error);
+            throw new Error('FileNotReadable');
+        }
+        console.error(`[HASH] Error computing hash for ${file.name}:`, error);
+        console.error(`[HASH] Error details - Name: ${error.name}, Message: ${error.message}`);
+        throw error;
+    }
 }
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
 
 /**
  * Возвращает эмодзи-иконку в зависимости от расширения файла
