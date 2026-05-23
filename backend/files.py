@@ -17,10 +17,34 @@ from .database import (
     increment_download_count, 
     list_files_by_user,
     delete_file_by_short_id,
-    get_files_by_hash
+    get_files_by_hash,
+    get_unique_name_by_hash,
+    # Новые helper-функции
+    get_files_in_folder,
+    get_file_by_hash_and_folder,
+    delete_files_in_folder,
+    get_files_paginated
 )
 from .utils import generate_short_id, format_file_size, compute_file_hash
 from .preview import get_preview_data
+from .config_constants import (
+    SHORT_ID_LENGTH,
+    HASH_LENGTH,
+    MAX_UPLOAD_ATTEMPTS,
+    DEFAULT_PAGE_SIZE,
+    PREVIEW_CACHE_MAX_AGE,
+    RATE_LIMIT_UPLOAD,
+    RATE_LIMIT_CHECK_FILE,
+    RATE_LIMIT_PREVIEW,
+    RATE_LIMIT_LIST_FILES,
+    RATE_LIMIT_DELETE,
+    RATE_LIMIT_BULK_DELETE,
+    RATE_LIMIT_DOWNLOAD_FOLDER,
+    ALLOWED_SORT_FIELDS,
+    DEFAULT_SORT_FIELD,
+    DEFAULT_SORT_ORDER
+)
+
 
 def register_file_routes(app):
     logger = logging.getLogger(__name__)
@@ -35,7 +59,7 @@ def register_file_routes(app):
 
     # --- СКАЧИВАНИЕ ПАПКИ КАК ZIP ---
     @app.route('/api/download/folder', methods=['GET'])
-    @rate_limit("5 per minute")
+    @rate_limit(RATE_LIMIT_DOWNLOAD_FOLDER)
     def download_folder_zip():
         try:
             user_id = session.get('user_id')
@@ -47,11 +71,8 @@ def register_file_routes(app):
                 logger.warning("[ZIP] Invalid request: missing path or user_id")
                 return jsonify({'error': 'Invalid request'}), 400
 
-            with sqlite3.connect(DB_PATH) as conn:
-                conn.row_factory = sqlite3.Row
-                c = conn.cursor()
-                c.execute('SELECT * FROM files WHERE owner_id = ? AND folder_path = ?', (user_id, folder_path))
-                files_to_zip = [dict(row) for row in c.fetchall()]
+            # Используем новую helper-функцию
+            files_to_zip = get_files_in_folder(user_id, folder_path, include_subfolders=True)
 
             logger.info(f"[ZIP] Found {len(files_to_zip)} files in folder '{folder_path}'")
 
@@ -96,7 +117,7 @@ def register_file_routes(app):
 
     # --- ПРЕВЬЮ ---
     @app.route('/api/preview/<short_id>')
-    @rate_limit("60 per minute")
+    @rate_limit(RATE_LIMIT_PREVIEW)
     def get_file_preview(short_id):
         try:
             file_data = get_file_by_short_id(short_id)
@@ -117,21 +138,29 @@ def register_file_routes(app):
 
     # --- СПИСОК ФАЙЛОВ ---
     @app.route('/api/files', methods=['GET'])
-    @rate_limit("60 per minute")
+    @rate_limit(RATE_LIMIT_LIST_FILES)
     def list_files_api():
         try:
             user_id = session.get('user_id')
-            all_files = list_files_by_user(user_id)
             
             page = request.args.get('page', 1, type=int)
             per_page = request.args.get('per_page', 20, type=int)
+            sort_field = request.args.get('sort', 'upload_date')
+            sort_order = request.args.get('order', 'DESC')
+            folder_path = request.args.get('folder', None)
             
-            start = (page - 1) * per_page
-            end = start + per_page
-            paginated_files = all_files[start:end]
+            # Используем новую helper-функцию с пагинацией
+            files, total_count = get_files_paginated(
+                user_id=user_id,
+                page=page,
+                per_page=per_page,
+                sort_field=sort_field,
+                sort_order=sort_order,
+                folder_path=folder_path
+            )
             
             file_list = []
-            for f in paginated_files:
+            for f in files:
                 file_list.append({
                     'short_id': f['short_id'],
                     'filename': f['original_filename'],
@@ -144,15 +173,18 @@ def register_file_routes(app):
                 
             return jsonify({
                 'files': file_list,
-                'total': len(all_files),
-                'has_more': end < len(all_files)
+                'total': total_count,
+                'has_more': (page * per_page) < total_count
             })
         except Exception as e:
+            logger.error(f"[API] Error listing files: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return jsonify({'error': str(e)}), 500
 
     # --- ПРОВЕРКА ФАЙЛА ---
     @app.route('/check', methods=['GET'])
-    @rate_limit("30 per minute")
+    @rate_limit(RATE_LIMIT_CHECK_FILE)
     def check_file():
         try:
             file_hash = request.args.get('h')
@@ -164,14 +196,8 @@ def register_file_routes(app):
             if not file_hash or len(file_hash) != 64:
                 return jsonify({'exists': False}), 200
 
-            with sqlite3.connect(DB_PATH) as conn:
-                conn.row_factory = sqlite3.Row
-                c = conn.cursor()
-                c.execute('SELECT * FROM files WHERE file_hash = ? AND owner_id = ? AND folder_path = ?', 
-                          (file_hash, current_user_id, folder_path))
-                existing = c.fetchone()
-                if existing:
-                    existing = dict(existing)
+            # Используем новую helper-функцию
+            existing = get_file_by_hash_and_folder(file_hash, current_user_id, folder_path)
 
             if existing:
                 url = f"https://{request.host}/d/{existing['short_id']}"
@@ -207,7 +233,7 @@ def register_file_routes(app):
 
     # --- ЗАГРУЗКА ФАЙЛА ---
     @app.route('/upload', methods=['POST'])
-    @rate_limit("10 per minute")
+    @rate_limit(RATE_LIMIT_UPLOAD)
     def upload_file():
         current_user_id = session.get('user_id')
         
@@ -224,7 +250,6 @@ def register_file_routes(app):
 
             folder_path = request.form.get('folder_path', '')
             
-            # Логируем начало загрузки
             logger.info(f"[UPLOAD START] User: {current_user_id} | File: {file.filename} | Folder: {folder_path}")
 
             file_hash = request.form.get('hash')
@@ -232,18 +257,12 @@ def register_file_routes(app):
                 file_hash = compute_file_hash(file)
                 file.seek(0)
             
-            with sqlite3.connect(DB_PATH) as conn:
-                conn.row_factory = sqlite3.Row
-                c = conn.cursor()
-                c.execute('SELECT * FROM files WHERE file_hash = ? AND owner_id = ? AND folder_path = ?', 
-                          (file_hash, current_user_id, folder_path))
-                existing_owned_file = c.fetchone()
+            # Используем новую helper-функцию
+            existing_owned_file = get_file_by_hash_and_folder(file_hash, current_user_id, folder_path)
 
             if existing_owned_file:
-                existing_dict = dict(existing_owned_file)
-                url = f"https://{request.host}/d/{existing_dict['short_id']}"
+                url = f"https://{request.host}/d/{existing_owned_file['short_id']}"
                 
-                # Лог пропуска дубликата
                 logger.info(f"[UPLOAD SKIP] User: {current_user_id} | File: {file.filename} (Already exists)")
                 client_logger.info(f"[UPLOAD SKIP] User: {current_user_id} | File: {file.filename}")
 
@@ -251,13 +270,13 @@ def register_file_routes(app):
                     'success': True,
                     'message': 'Файл уже загружен',
                     'file_data': {
-                        'short_id': existing_dict['short_id'],
-                        'filename': existing_dict['original_filename'],
-                        'size': format_file_size(existing_dict['file_size']),
-                        'date': existing_dict['upload_date'][:10],
-                        'downloads': existing_dict.get('download_count', 0),
+                        'short_id': existing_owned_file['short_id'],
+                        'filename': existing_owned_file['original_filename'],
+                        'size': format_file_size(existing_owned_file['file_size']),
+                        'date': existing_owned_file['upload_date'][:10],
+                        'downloads': existing_owned_file.get('download_count', 0),
                         'url': url,
-                        'folder_path': existing_dict.get('folder_path', '')
+                        'folder_path': existing_owned_file.get('folder_path', '')
                     }
                 }), 200
 
@@ -282,7 +301,6 @@ def register_file_routes(app):
                 try:
                     insert_file(new_short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id, folder_path=folder_path)
                     
-                    # Лог создания новой ссылки на существующий файл
                     log_msg = f"[UPLOAD LINK] User: {current_user_id} | File: {file.filename} | New ID: {new_short_id}"
                     logger.info(log_msg)
                     client_logger.info(log_msg)
@@ -323,7 +341,6 @@ def register_file_routes(app):
             
             insert_file(short_id, unique_name, file.filename, file_hash, file_size, owner_id=current_user_id, folder_path=folder_path)
             
-            # Лог полной новой загрузки
             log_msg = f"[UPLOAD NEW] User: {current_user_id} | File: {file.filename} | Size: {file_size} bytes | ID: {short_id}"
             logger.info(log_msg)
             client_logger.info(log_msg)
@@ -343,13 +360,15 @@ def register_file_routes(app):
 
         except Exception as e:
             logger.error(f"[UPLOAD] Critical Error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return jsonify({'error': 'Internal Server Error'}), 500
 
     # ... existing code ...
 
     # --- УДАЛЕНИЕ ОДНОГО ФАЙЛА ---
     @app.route('/api/delete/<short_id>', methods=['DELETE'])
-    @rate_limit("20 per minute")
+    @rate_limit(RATE_LIMIT_DELETE)
     def delete_file(short_id):
         try:
             user_id = session.get('user_id')
@@ -386,11 +405,8 @@ def register_file_routes(app):
             return jsonify({'error': str(e)}), 500
 
     # --- МАССОВОЕ УДАЛЕНИЕ / УДАЛЕНИЕ ПАПОК ---
-    # ... existing code ...
-
-    # --- МАССОВОЕ УДАЛЕНИЕ / УДАЛЕНИЕ ПАПОК ---
     @app.route('/api/delete/bulk', methods=['POST'])
-    @rate_limit("10 per minute")
+    @rate_limit(RATE_LIMIT_BULK_DELETE)
     def delete_bulk_files():
         try:
             user_id = session.get('user_id')
@@ -406,35 +422,25 @@ def register_file_routes(app):
                 logger.info(f"[BULK DELETE] User: {user_id} | Folder: {folder_path}")
                 client_logger.info(f"[BULK DELETE] User: {user_id} | Folder: {folder_path}")
 
-                with sqlite3.connect(DB_PATH) as conn:
-                    conn.row_factory = sqlite3.Row
-                    c = conn.cursor()
-                    # Исправлено: выбираем файлы из папки и всех её подпапок
-                    c.execute('''
-                        SELECT * FROM files 
-                        WHERE owner_id = ? 
-                        AND (folder_path = ? OR folder_path LIKE ?)
-                    ''', (user_id, folder_path, folder_path + '/%'))
-                    files_to_delete = [dict(row) for row in c.fetchall()]
+                # Используем новую helper-функцию для удаления
+                files_to_delete = delete_files_in_folder(user_id, folder_path, include_subfolders=True)
                 
                 logger.info(f"[BULK DELETE] Found {len(files_to_delete)} files to delete")
                 
-                for file_data in files_to_delete:
-                    s_id = file_data['short_id']
-                    f_hash = file_data['file_hash']
-                    u_name = file_data['unique_name']
-                    f_path = os.path.join(UPLOAD_FOLDER, u_name)
+                for file_info in files_to_delete:
+                    s_id = file_info['short_id']
+                    f_hash = file_info['file_hash']
+                    u_name = get_unique_name_by_hash(f_hash)
                     
-                    try:
-                        delete_file_by_short_id(s_id)
-                        deleted_ids.append(s_id)
+                    if u_name:
+                        f_path = os.path.join(UPLOAD_FOLDER, u_name)
                         
                         remaining = get_files_by_hash(f_hash)
                         if len(remaining) == 0 and os.path.exists(f_path):
                             os.remove(f_path)
                             logger.debug(f"[BULK DELETE] Removed physical file: {u_name}")
-                    except Exception as file_err:
-                        logger.error(f"[BULK DELETE] Error deleting file {s_id}: {file_err}")
+                    
+                    deleted_ids.append(s_id)
                         
             elif 'ids' in data:
                 logger.info(f"[BULK DELETE] User: {user_id} | Count: {len(data['ids'])}")

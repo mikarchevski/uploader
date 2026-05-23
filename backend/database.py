@@ -2,9 +2,7 @@
 import sqlite3
 from datetime import datetime
 from .config import DB_PATH
-from werkzeug.security import generate_password_hash, check_password_hash # Не забудьте этот импорт!
-
-# ... existing code ...
+from werkzeug.security import generate_password_hash, check_password_hash
 
 def init_db():
     """Инициализирует базу данных и создает таблицу, если она не существует."""
@@ -25,7 +23,7 @@ def init_db():
             )
         ''')
 
-         # Проверка и добавление колонки owner_id, если она отсутствует (для старых баз)
+        # Проверка и добавление колонки owner_id, если она отсутствует (для старых баз)
         try:
             c.execute("SELECT owner_id FROM files LIMIT 1")
         except sqlite3.OperationalError:
@@ -46,7 +44,7 @@ def init_db():
             print("Adding folder_path column to files table...")
             c.execute("ALTER TABLE files ADD COLUMN folder_path TEXT DEFAULT ''")
 
-         # Новая таблица пользователей
+        # Новая таблица пользователей
         c.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,8 +54,6 @@ def init_db():
             )
         ''')
         conn.commit()
-
-# ... existing code ...
 
 # ... existing code ...
 
@@ -104,8 +100,6 @@ def list_all_files():
         c.execute('SELECT short_id, original_filename, file_size, upload_date, download_count FROM files ORDER BY upload_date DESC')
         return [dict(row) for row in c.fetchall()]
 
-# ... existing code ...
-# ... existing code ...
 def list_files_by_user(user_id):
     """Возвращает список файлов конкретного пользователя."""
     with sqlite3.connect(DB_PATH) as conn:
@@ -114,7 +108,6 @@ def list_files_by_user(user_id):
         if not user_id:
             return []
             
-        # Убедись, что folder_path здесь есть!
         try:
             c.execute('''
                 SELECT short_id, original_filename, file_size, upload_date, download_count, folder_path 
@@ -125,7 +118,6 @@ def list_files_by_user(user_id):
             return [dict(row) for row in c.fetchall()]
         except sqlite3.OperationalError as e:
             print(f"[DB ERROR] SQL Query failed: {e}")
-            # Если колонки нет, пробуем запрос без неё (для совместимости)
             c.execute('''
                 SELECT short_id, original_filename, file_size, upload_date, download_count 
                 FROM files 
@@ -136,8 +128,7 @@ def list_files_by_user(user_id):
             for r in rows:
                 r['folder_path'] = ''
             return rows
-# ... existing code ...
-# ... existing code ...
+
 def get_user_by_username(username):
     """Получает пользователя по имени."""
     with sqlite3.connect(DB_PATH) as conn:
@@ -158,7 +149,7 @@ def create_user(username, password):
             conn.commit()
             return True
     except sqlite3.IntegrityError:
-        return False # Пользователь уже существует
+        return False
 
 def verify_password(stored_hash, password):
     """Проверяет пароль."""
@@ -187,3 +178,210 @@ def get_unique_name_by_hash(file_hash):
         c.execute('SELECT unique_name FROM files WHERE file_hash = ? LIMIT 1', (file_hash,))
         row = c.fetchone()
         return row['unique_name'] if row else None
+
+# ============================================================================
+# НОВЫЕ HELPER-ФУНКЦИИ ДЛЯ РАБОТЫ С ПАПКАМИ
+# ============================================================================
+
+def get_files_in_folder(user_id, folder_path, include_subfolders=False):
+    """
+    Получает файлы из указанной папки.
+    
+    Args:
+        user_id: ID пользователя
+        folder_path: Путь к папке
+        include_subfolders: Если True, включает файлы из подпапок
+    
+    Returns:
+        Список словарей с данными файлов
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        if include_subfolders:
+            c.execute('''
+                SELECT * FROM files 
+                WHERE owner_id = ? AND (folder_path = ? OR folder_path LIKE ?)
+                ORDER BY upload_date DESC
+            ''', (user_id, folder_path, folder_path + '/%'))
+        else:
+            c.execute('''
+                SELECT * FROM files 
+                WHERE owner_id = ? AND folder_path = ?
+                ORDER BY upload_date DESC
+            ''', (user_id, folder_path))
+        
+        return [dict(row) for row in c.fetchall()]
+
+def get_file_by_hash_and_folder(file_hash, user_id, folder_path):
+    """
+    Проверяет существование файла с указанным хешем в конкретной папке у пользователя.
+    
+    Args:
+        file_hash: SHA-256 хеш файла
+        user_id: ID пользователя
+        folder_path: Путь к папке
+    
+    Returns:
+        Словарь с данными файла или None
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('''
+            SELECT * FROM files 
+            WHERE file_hash = ? AND owner_id = ? AND folder_path = ?
+        ''', (file_hash, user_id, folder_path))
+        row = c.fetchone()
+        return dict(row) if row else None
+
+def delete_files_in_folder(user_id, folder_path, include_subfolders=False):
+    """
+    Удаляет все файлы из указанной папки.
+    
+    Args:
+        user_id: ID пользователя
+        folder_path: Путь к папке
+        include_subfolders: Если True, удаляет файлы из подпапок
+    
+    Returns:
+        Список short_id удалённых файлов
+    """
+    deleted_ids = []
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        if include_subfolders:
+            c.execute('''
+                SELECT short_id, file_hash FROM files 
+                WHERE owner_id = ? AND (folder_path = ? OR folder_path LIKE ?)
+            ''', (user_id, folder_path, folder_path + '/%'))
+        else:
+            c.execute('''
+                SELECT short_id, file_hash FROM files 
+                WHERE owner_id = ? AND folder_path = ?
+            ''', (user_id, folder_path))
+        
+        files_to_delete = [dict(row) for row in c.fetchall()]
+        
+        for file_data in files_to_delete:
+            c.execute('DELETE FROM files WHERE short_id = ?', (file_data['short_id'],))
+            deleted_ids.append({
+                'short_id': file_data['short_id'],
+                'file_hash': file_data['file_hash']
+            })
+        
+        conn.commit()
+    
+    return deleted_ids
+
+def get_folder_list(user_id):
+    """
+    Получает список уникальных папок пользователя.
+    
+    Args:
+        user_id: ID пользователя
+    
+    Returns:
+        Список уникальных путей к папкам
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute('''
+            SELECT DISTINCT folder_path FROM files 
+            WHERE owner_id = ? AND folder_path != ''
+            ORDER BY folder_path
+        ''', (user_id,))
+        return [row[0] for row in c.fetchall()]
+
+def count_files_in_folder(user_id, folder_path, include_subfolders=False):
+    """
+    Подсчитывает количество файлов в папке.
+    
+    Args:
+        user_id: ID пользователя
+        folder_path: Путь к папке
+        include_subfolders: Если True, включает файлы из подпапок
+    
+    Returns:
+        Количество файлов
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        
+        if include_subfolders:
+            c.execute('''
+                SELECT COUNT(*) FROM files 
+                WHERE owner_id = ? AND (folder_path = ? OR folder_path LIKE ?)
+            ''', (user_id, folder_path, folder_path + '/%'))
+        else:
+            c.execute('''
+                SELECT COUNT(*) FROM files 
+                WHERE owner_id = ? AND folder_path = ?
+            ''', (user_id, folder_path))
+        
+        return c.fetchone()[0]
+
+def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', sort_order='DESC', folder_path=None):
+    """
+    Получает файлы с пагинацией и сортировкой.
+    
+    Args:
+        user_id: ID пользователя
+        page: Номер страницы (начиная с 1)
+        per_page: Количество файлов на странице
+        sort_field: Поле для сортировки
+        sort_order: Порядок сортировки ('ASC' или 'DESC')
+        folder_path: Фильтр по папке (None = все файлы)
+    
+    Returns:
+        Кортеж (список файлов, общее количество)
+    """
+    offset = (page - 1) * per_page
+    
+    # Валидация поля сортировки
+    allowed_sort_fields = ['upload_date', 'original_filename', 'file_size', 'folder_path']
+    if sort_field not in allowed_sort_fields:
+        sort_field = 'upload_date'
+    
+    # Валидация порядка сортировки
+    sort_order = sort_order.upper() if sort_order.upper() in ['ASC', 'DESC'] else 'DESC'
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        if folder_path:
+            # Фильтрация по папке (включая подпапки)
+            base_query = '''
+                FROM files 
+                WHERE owner_id = ? AND (folder_path = ? OR folder_path LIKE ?)
+            '''
+            count_params = (user_id, folder_path, folder_path + '/%')
+            data_params = (user_id, folder_path, folder_path + '/%', per_page, offset)
+        else:
+            base_query = '''
+                FROM files 
+                WHERE owner_id = ?
+            '''
+            count_params = (user_id,)
+            data_params = (user_id, per_page, offset)
+        
+        # Получаем общее количество
+        c.execute(f'SELECT COUNT(*) {base_query}', count_params)
+        total_count = c.fetchone()[0]
+        
+        # Получаем файлы с пагинацией
+        query = f'''
+            SELECT short_id, original_filename, file_size, upload_date, download_count, folder_path
+            {base_query}
+            ORDER BY {sort_field} {sort_order}
+            LIMIT ? OFFSET ?
+        '''
+        c.execute(query, data_params)
+        files = [dict(row) for row in c.fetchall()]
+        
+        return files, total_count
