@@ -167,6 +167,14 @@ export class UploadManager {
         }
     }
 
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
     async startUpload(queueItem) {
         return new Promise((resolve, reject) => {
             const file = queueItem.file;

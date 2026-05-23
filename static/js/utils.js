@@ -14,6 +14,14 @@ export function formatBytes(bytes) {
 /**
  * Вычисляет SHA-256 хеш файла
  */
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
 export async function computeFileHash(file) {
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
