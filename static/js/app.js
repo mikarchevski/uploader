@@ -111,23 +111,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Helper Functions ---
 
     function refreshGridFromState() {
-        const sortConfig = sortManager.getSortConfig();
-        const sortedAllFiles = sortFiles(allFiles, sortConfig.field, sortConfig.order);
+        const sortedFiles = sortFiles(allFiles, currentSortField, currentSortOrder);
         
-        let filesToShow = sortedAllFiles;
-        const currentFolderPath = folderNav.getCurrentFolder();
+        let filesToShow = sortedFiles;
         
         if (currentFolderPath) {
-            filesToShow = sortedAllFiles.filter(f => {
-                const folderPath = f.folder_path || '';
-                return folderPath === currentFolderPath || folderPath.startsWith(currentFolderPath + '/');
+            filesToShow = sortedFiles.filter(f => {
+                const fp = f.folder_path || '';
+                return fp === currentFolderPath || fp.startsWith(currentFolderPath + '/');
             });
+        } else {
+            filesToShow = sortedFiles.filter(f => !f.folder_path || f.folder_path === '');
         }
 
         renderFilesGrid(filesListContainer, filesToShow);
         updateFileCount(fileCountLabel, filesToShow.length, totalFilesCount);
     }
-
     function handleFileUploaded(newFileData) {
         const exists = allFiles.some(f => f.short_id === newFileData.short_id);
         
@@ -136,7 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof totalFilesCount !== 'undefined') {
                 totalFilesCount++;
             }
-            refreshGridFromState();
+            
+            // Вместо полной перерисовки добавляем только новый файл
+            addFileToGrid(filesListContainer, newFileData);
+            
+            // Обновляем только счетчик
+            updateFileCount(fileCountLabel, allFiles.length, totalFilesCount);
         }
     }
 
