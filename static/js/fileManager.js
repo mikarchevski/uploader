@@ -36,6 +36,28 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         setTimeout(() => deleteModal.classList.add('active'), 10);
     }
 
+    // Модальное окно для множественного удаления
+    function openDeleteModalMultiple(items) {
+        pendingDeleteItem = { type: 'multiple', items };
+        
+        const fileCount = items.filter(i => i.type === 'file').length;
+        const folderCount = items.filter(i => i.type === 'folder').length;
+        
+        let message = 'Удалить ';
+        if (fileCount > 0 && folderCount > 0) {
+            message += `<strong>${fileCount}</strong> файл(ов) и <strong>${folderCount}</strong> папку(ок)?`;
+        } else if (fileCount > 0) {
+            message += `<strong>${fileCount}</strong> файл(ов)?`;
+        } else {
+            message += `<strong>${folderCount}</strong> папку(ок)?`;
+        }
+        
+        modalFileName.innerHTML = message;
+        
+        deleteModal.classList.remove('hidden');
+        setTimeout(() => deleteModal.classList.add('active'), 10);
+    }
+
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -65,7 +87,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         };
     }
 
-    if (btnConfirmDelete) {
+     if (btnConfirmDelete) {
         btnConfirmDelete.onclick = async (e) => {
             e.stopPropagation();
             if (!pendingDeleteItem) return;
@@ -74,6 +96,30 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             
             if (pendingDeleteItem.type === 'folder') {
                 await performFolderDelete(pendingDeleteItem.path);
+            } else if (pendingDeleteItem.type === 'multiple') {
+                // Удаляем все выбранные элементы
+                const fileIds = [];
+                const folderPaths = [];
+                
+                pendingDeleteItem.items.forEach(item => {
+                    if (item.type === 'file') {
+                        fileIds.push(item.id);
+                    } else if (item.type === 'folder') {
+                        folderPaths.push(item.path);
+                    }
+                });
+                
+                // Сначала удаляем файлы
+                if (fileIds.length > 0) {
+                    await performBulkDelete(fileIds);
+                }
+                
+                // Затем удаляем папки
+                for (const folderPath of folderPaths) {
+                    await performFolderDelete(folderPath);
+                }
+                
+                clearSelection();
             } else {
                 await performBulkDelete([pendingDeleteItem.id]);
             }
@@ -129,6 +175,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     }
 
     // ЕДИНАЯ ЛОГИКА ПАНЕЛИ ДЛЯ ВСЕХ ОБЪЕКТОВ
+    // ЕДИНАЯ ЛОГИКА ПАНЕЛИ ДЛЯ ВСЕХ ОБЪЕКТОВ
     function updateActionBarState(activeCard) {
         if (!selectedItemKey || !activeCard) {
             closeFileActionBar();
@@ -136,7 +183,13 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         }
 
         const name = activeCard.querySelector('.file-card-name').textContent;
-        actionFileName.textContent = name;
+        
+        // Показываем количество выбранных элементов, если их больше одного
+        if (selectedItems.size > 1) {
+            actionFileName.textContent = `Выбрано: ${selectedItems.size}`;
+        } else {
+            actionFileName.textContent = name;
+        }
         
         const isFolder = activeCard.classList.contains('folder-card');
 
@@ -150,8 +203,8 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         btnCopyLink.classList.remove('hidden');
         btnDelete.classList.remove('hidden');
 
-        if (isFolder) {
-            // Настройки для ПАПКИ
+        if (isFolder && selectedItems.size === 1) {
+            // Настройки для ОДНОЙ ПАПКИ
             btnDownload.textContent = '⬇ Скачать ZIP';
             btnCopyLink.textContent = '📋 Ссылка';
             btnDelete.textContent = '🗑 Удалить';
@@ -169,8 +222,49 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             
             btnDelete.onclick = () => openDeleteModal({ type: 'folder', name, path: folderPath });
 
+        } else if (selectedItems.size > 1) {
+            // Настройки для МНОЖЕСТВЕННОГО выбора
+            btnDownload.textContent = '⬇ Скачать';
+            btnCopyLink.textContent = '📋 Ссылка';
+            btnDelete.textContent = `🗑 Удалить (${selectedItems.size})`;
+            
+            // Скачивание нескольких файлов (пока заглушка)
+            btnDownload.onclick = () => showToast('Массовое скачивание в разработке');
+            
+            // Копирование ссылки первого файла
+            const firstKey = Array.from(selectedItems.keys())[0];
+            const firstCard = selectedItems.get(firstKey);
+            const isFirstFolder = firstCard.classList.contains('folder-card');
+            
+            if (isFirstFolder) {
+                btnCopyLink.onclick = () => {
+                    copyToClipboard(window.location.href); 
+                    showToast('Ссылка скопирована');
+                };
+            } else {
+                const url = `/d/${firstKey}`;
+                btnCopyLink.onclick = () => copyToClipboard(url);
+            }
+            
+            // Удаление всех выбранных элементов
+            btnDelete.onclick = () => {
+                const itemsToDelete = [];
+                selectedItems.forEach((element, key) => {
+                    const isFolder = element.classList.contains('folder-card');
+                    const name = element.querySelector('.file-card-name').textContent;
+                    
+                    if (isFolder) {
+                        const folderPath = element.getAttribute('data-folder-path');
+                        itemsToDelete.push({ type: 'folder', name, path: folderPath });
+                    } else {
+                        itemsToDelete.push({ type: 'file', name, id: key });
+                    }
+                });
+                openDeleteModalMultiple(itemsToDelete);
+            };
+
         } else {
-            // Настройки для ФАЙЛА
+            // Настройки для ОДНОГО ФАЙЛА
             btnDownload.textContent = '⬇ Скачать';
             btnCopyLink.textContent = '📋 Ссылка';
             btnDelete.textContent = '🗑 Удалить';
@@ -182,7 +276,6 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             btnDelete.onclick = () => openDeleteModal({ type: 'file', name, id: selectedItemKey });
         }
     }
-
     // --- Скачивание папки как ZIP ---
     async function downloadFolderAsZip(folderPath, folderName) {
         try {
