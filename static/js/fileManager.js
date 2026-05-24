@@ -19,6 +19,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     let pendingDeleteItem = null; 
     let isPanelOpen = false;      
     let selectedItemKey = null;   
+    let selectedItems = new Map(); 
 
     // --- Логика Модального Окна ---
     function openDeleteModal(item) {
@@ -50,6 +51,13 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         }, 200);
     }
 
+    // Обработчик клавиши Esc для закрытия модального окна
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !deleteModal.classList.contains('hidden')) {
+            closeDeleteModal();
+        }
+    });
+
     if (btnCancelDelete) {
         btnCancelDelete.onclick = (e) => {
             e.stopPropagation();
@@ -74,23 +82,48 @@ export function initFileManager(filesListContainer, fileCountLabel) {
 
     // --- Управление выделением и Панелью ---
 
-    function selectItem(key, element) {
-        document.querySelectorAll('.file-card.selected').forEach(el => {
-            if (el !== element) el.classList.remove('selected');
-        });
-        
-        selectedItemKey = key;
-        element.classList.add('selected');
-        
-        if (!isPanelOpen) {
-            openFileActionBar(element);
+    function selectItem(key, element, isMultiSelect = false) {
+        if (!isMultiSelect) {
+            document.querySelectorAll('.file-card.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+            selectedItems.clear();
+            
+            selectedItemKey = key;
+            element.classList.add('selected');
+            selectedItems.set(key, element);
         } else {
-            updateActionBarState(element);
+            if (selectedItems.has(key)) {
+                element.classList.remove('selected');
+                selectedItems.delete(key);
+                
+                if (selectedItemKey === key) {
+                    selectedItemKey = selectedItems.size > 0 ? Array.from(selectedItems.keys())[0] : null;
+                }
+            } else {
+                element.classList.add('selected');
+                selectedItems.set(key, element);
+                
+                if (!selectedItemKey || selectedItems.size === 1) {
+                    selectedItemKey = key;
+                }
+            }
+        }
+        
+        if (selectedItems.size > 0) {
+            if (!isPanelOpen) {
+                openFileActionBar(element);
+            } else {
+                updateActionBarState(element);
+            }
+        } else {
+            clearSelection();
         }
     }
 
     function clearSelection() {
         document.querySelectorAll('.file-card.selected').forEach(el => el.classList.remove('selected'));
+        selectedItems.clear();
         selectedItemKey = null;
         if (isPanelOpen) closeFileActionBar();
     }
@@ -120,7 +153,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         if (isFolder) {
             // Настройки для ПАПКИ
             btnDownload.textContent = '⬇ Скачать ZIP';
-            btnCopyLink.textContent = '🔗 Поделиться';
+            btnCopyLink.textContent = '📋 Ссылка';
             btnDelete.textContent = '🗑 Удалить';
             
             const folderPath = activeCard.getAttribute('data-folder-path');
@@ -128,9 +161,8 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             // Скачивание папки как ZIP
             btnDownload.onclick = () => downloadFolderAsZip(folderPath, name);
             
-            // Копирование ссылки (пока просто заглушка или ссылка на текущий URL)
+            // Копирование ссылки
             btnCopyLink.onclick = () => {
-                // Можно сделать генерацию специальной ссылки, пока копируем текущую
                 copyToClipboard(window.location.href); 
                 showToast('Ссылка скопирована');
             };
@@ -140,7 +172,7 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         } else {
             // Настройки для ФАЙЛА
             btnDownload.textContent = '⬇ Скачать';
-            btnCopyLink.textContent = '🔗 Поделиться';
+            btnCopyLink.textContent = '📋 Ссылка';
             btnDelete.textContent = '🗑 Удалить';
             
             const url = `/d/${selectedItemKey}`;
@@ -152,24 +184,18 @@ export function initFileManager(filesListContainer, fileCountLabel) {
     }
 
     // --- Скачивание папки как ZIP ---
-    // ... existing code ...
-
-    // --- Скачивание папки как ZIP ---
     async function downloadFolderAsZip(folderPath, folderName) {
         try {
             showToast('Подготовка архива...');
             
-            // Делаем запрос к нашему новому API
             const response = await fetch(`/api/download/folder?path=${encodeURIComponent(folderPath)}`);
             
             if (!response.ok) {
                 throw new Error('Failed to create archive');
             }
 
-            // Получаем blob (бинарные данные архива)
             const blob = await response.blob();
             
-            // Создаем временную ссылку для скачивания
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -177,7 +203,6 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             document.body.appendChild(a);
             a.click();
             
-            // Убираем за собой
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             
@@ -187,8 +212,6 @@ export function initFileManager(filesListContainer, fileCountLabel) {
             showToast('Ошибка при создании архива', true);
         }
     }
-
-// ... existing code ...
 
     // --- Удаление ПАПКИ ---
     async function performFolderDelete(folderPath) {
@@ -307,17 +330,18 @@ export function initFileManager(filesListContainer, fileCountLabel) {
         const key = card.getAttribute('data-short-id') || card.getAttribute('data-folder-path');
         
         if (key) {
-            selectItem(key, card);
+            const isMultiSelect = e.ctrlKey || e.metaKey;
+            selectItem(key, card, isMultiSelect);
         }
         
         e.stopPropagation();
     });
-     // Обработчик ДВОЙНОГО клика
-     filesListContainer.addEventListener('dblclick', (e) => {
+    
+    // Обработчик ДВОЙНОГО клика
+    filesListContainer.addEventListener('dblclick', (e) => {
         const card = e.target.closest('.file-card');
         if (!card) return;
 
-        // Открываем папку при двойном клике
         if (card.classList.contains('folder-card')) {
             const folderPath = card.getAttribute('data-folder-path');
             if (folderPath && window.navigateToFolder) {
