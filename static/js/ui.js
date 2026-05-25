@@ -210,16 +210,21 @@ export function attachDoubleClick(card, file) {
 
 // --- КОНЕЦ LIGHTBOX ---
 
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+
 export function renderFilesGrid(filesListContainer, files) {
-    const currentFolder = window.getCurrentFolder ? window.getCurrentFolder() : null;
-    clientLogger.info(`Rendering grid: ${files.length} files`, currentFolder ? `in folder: ${currentFolder}` : 'in root');
+    const currentFolder = window.folderNav ? window.folderNav.getCurrentFolder() : null;
 
     const spinnerWrapper = filesListContainer.querySelector('.spinner-wrapper');
     if (spinnerWrapper) spinnerWrapper.remove();
     filesListContainer.classList.remove('loading');
 
     if (!files || files.length === 0) {
-        const isInFolder = window.getCurrentFolder && window.getCurrentFolder();
+        const isInFolder = window.folderNav && window.folderNav.getCurrentFolder();
         filesListContainer.innerHTML = `<div class="no-files"><h3>${isInFolder ? 'Папка пуста' : 'Здесь пока пусто'}</h3></div>`;
         return;
     }
@@ -361,6 +366,12 @@ export function renderFilesGrid(filesListContainer, files) {
     filesListContainer.innerHTML = ''; 
     filesListContainer.appendChild(fragment);
 }
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
 
 async function loadPreviewForCard(card, shortId) {
     const cachedPreview = getCachedPreview(shortId);

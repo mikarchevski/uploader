@@ -110,7 +110,9 @@ export class UploadManager {
                     <div class="progress-bar"></div>
                 </div>
                 <div class="folder-details" style="font-size: 0.8rem; color: var(--muted); margin-top: 5px;">
-                    Загружено: 0 / ${totalFiles}
+                   
+
+
                 </div>
             `;
             
@@ -144,7 +146,7 @@ export class UploadManager {
                             completedCount++;
                             const percent = (completedCount / totalFiles) * 100;
                             barEl.style.width = percent + '%';
-                            detailsEl.textContent = `Загружено: ${completedCount} / ${totalFiles}`;
+                            // detailsEl.textContent = `Загружено: ${completedCount} / ${totalFiles}`;
                             
                             if (completedCount === totalFiles) {
                                 statusEl.textContent = '✅ Папка загружена';
@@ -265,7 +267,7 @@ export class UploadManager {
             // Увеличиваем паузу до 300мс, чтобы браузер успевал освобождать ресурсы
             setTimeout(() => {
                 this.processQueue();
-            }, 300); 
+            }, 1000); 
         }
     }
 
@@ -369,23 +371,47 @@ export class UploadManager {
                             return; 
                         }
 
-                        if (res && res.success) {
-                            if (this.onUploadComplete && res.file_data) {
-                                this.onUploadComplete(res.file_data);
+                         if (res && res.success) {
+                                console.log('[UPLOAD] Server response:', res);
+                                
+                                if (res.message === 'Файл уже загружен' || res.message === 'File already exists') {
+                                    uiItem.setStatus('Файл уже загружен');
+                                } else {
+                                    uiItem.setSuccess();
+                                }
+                                
+                                const bar = uiItem.element.querySelector('.progress-bar');
+                                if (bar) {
+                                    bar.style.width = '100%';
+                                    bar.style.backgroundColor = '#10b981';
+                                }
+                                uiItem.element.classList.add('success');
+
+                                if (this.onUploadComplete && res.file_data && res.message !== 'Файл уже загружен' && res.message !== 'File already exists') {
+                                    this.onUploadComplete(res.file_data);
+                                }
+                                
+                                resolve();
+                            } else {
+                                console.error('[UPLOAD] Upload failed:', res);
+                                
+                                // Проверяем, не ошибка ли это rate limiting (429)
+                                if (res.error && (res.error.includes('429') || res.error.includes('Too Many'))) {
+                                    uiItem.setStatus('⏳ Превышен лимит, повтор...');
+                                    
+                                    // Ждем 3 секунды и повторяем
+                                    setTimeout(() => {
+                                        this.queue.unshift(queueItem);
+                                        this.processQueue();
+                                    }, 3000);
+                                    
+                                    resolve();
+                                    return;
+                                }
+                                
+                                uiItem.setError(res?.error || 'Ошибка сервера');
+                                reject(new Error(res?.error));
                             }
-                            
-                            if (queueItem.parentUi) {
-                                queueItem.parentUi.updateProgress();
-                            } else if (uiItem) {
-                                uiItem.setSuccess();
-                            }
-                            
-                            resolve();
-                        } else {
-                            const errorMsg = res.error || 'Upload failed';
-                            if (uiItem) uiItem.setError(errorMsg);
-                            reject(new Error(errorMsg));
-                        }
                     },
                     (err) => {
                         if (uiItem) uiItem.setError(err.message);

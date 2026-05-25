@@ -8,6 +8,8 @@ export class FolderNavigation {
         this.currentFolderPath = null;
         this.filesListContainer = options.filesListContainer;
         this.onNavigate = options.onNavigate; // callback при смене папки
+
+        this.updateBreadcrumbs();
     }
 
     getCurrentFolder() {

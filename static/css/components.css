@@ -94,7 +94,7 @@ body {
     justify-content: space-between;
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    max-height: 237px;
+    max-height: 190px;
 }
 
 .file-card:hover {
@@ -115,7 +115,14 @@ body {
     color: var(--primary);
 }
 
-.file-details { margin-bottom: 1rem; }
+.file-details { 
+    margin-bottom: 1rem;
+    display: block;
+  position: relative;
+  align-content: center;
+  width: 100%;
+
+}
 .file-card-name { 
     font-weight: 600; 
     font-size: 1rem; 
@@ -123,6 +130,10 @@ body {
     word-break: break-word;
     line-height: 1.3;
     color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
 }
 .file-card-meta { 
     font-size: 0.8rem; 

@@ -437,8 +437,8 @@ export function initFileManager(filesListContainer, fileCountLabel) {
 
         if (card.classList.contains('folder-card')) {
             const folderPath = card.getAttribute('data-folder-path');
-            if (folderPath && window.navigateToFolder) {
-                window.navigateToFolder(folderPath);
+            if (folderPath && window.folderNav) {
+                window.folderNav.navigateToFolder(folderPath);
             }
         }
     });

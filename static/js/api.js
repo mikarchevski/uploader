@@ -15,8 +15,14 @@ export async function fetchAllFiles() {
  * @param {number} page - Номер страницы (начиная с 1)
  * @param {number} perPage - Количество файлов
  */
-export async function fetchFilesPage(page = 1, perPage = 20) {
-    const response = await fetch(`/api/files?page=${page}&per_page=${perPage}`);
+export async function fetchFilesPage(page = 1, perPage = 20, sortField = 'upload_date', sortOrder = 'DESC', folderPath = null) {
+    let url = `/api/files?page=${page}&per_page=${perPage}&sort=${sortField}&order=${sortOrder}`;
+    
+    if (folderPath) {
+        url += `&folder=${encodeURIComponent(folderPath)}`;
+    }
+    
+    const response = await fetch(url);
     return await response.json();
 }
 

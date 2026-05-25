@@ -27,7 +27,7 @@ RATE_LIMIT_DELETE = "20 per minute"
 RATE_LIMIT_BULK_DELETE = "10 per minute"
 RATE_LIMIT_CHECK_FILE = "30 per minute"
 RATE_LIMIT_PREVIEW = "60 per minute"
-RATE_LIMIT_LIST_FILES = "60 per minute"
+RATE_LIMIT_LIST_FILES = "600 per minute"
 RATE_LIMIT_DOWNLOAD_FOLDER = "5 per minute"
 
 # === СЕССИИ ===

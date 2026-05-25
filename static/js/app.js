@@ -110,23 +110,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helper Functions ---
 
-    function refreshGridFromState() {
-        const sortedFiles = sortFiles(allFiles, currentSortField, currentSortOrder);
-        
-        let filesToShow = sortedFiles;
-        
-        if (currentFolderPath) {
-            filesToShow = sortedFiles.filter(f => {
-                const fp = f.folder_path || '';
-                return fp === currentFolderPath || fp.startsWith(currentFolderPath + '/');
-            });
-        } else {
-            filesToShow = sortedFiles.filter(f => !f.folder_path || f.folder_path === '');
-        }
+    // ... existing code ...
 
-        renderFilesGrid(filesListContainer, filesToShow);
-        updateFileCount(fileCountLabel, filesToShow.length, totalFilesCount);
+    // --- Helper Functions ---
+
+    // ... existing code ...
+
+    // --- Helper Functions ---
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    function refreshGridFromState() {
+    const sortConfig = sortManager.getSortConfig();
+    const sortedFiles = sortFiles(allFiles, sortConfig.field, sortConfig.order);
+    
+    let filesToShow = sortedFiles;
+    
+    const currentFolderPath = folderNav.getCurrentFolder();
+    
+    if (currentFolderPath) {
+        // Показываем все файлы, которые находятся в текущей папке или её подпапках
+        filesToShow = sortedFiles.filter(f => {
+            const fp = f.folder_path || '';
+            return fp === currentFolderPath || fp.startsWith(currentFolderPath + '/');
+        });
+    } else {
+        // Корневая директория: показываем файлы без папки и папки первого уровня
+        filesToShow = sortedFiles.filter(f => {
+            const fp = f.folder_path || '';
+            const hasNoFolder = !fp || fp === '';
+            const isFirstLevel = fp && !fp.includes('/');
+            
+            return hasNoFolder || isFirstLevel;
+        });
     }
+
+    renderFilesGrid(filesListContainer, filesToShow);
+    updateFileCount(fileCountLabel, filesToShow.length, totalFilesCount);
+}
+
+// ... existing code ...
+
+// ... existing code ...
+
+// ... existing code ...
+// ... existing code ...
+
     function handleFileUploaded(newFileData) {
         const exists = allFiles.some(f => f.short_id === newFileData.short_id);
         
@@ -136,13 +171,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalFilesCount++;
             }
             
-            // Вместо полной перерисовки добавляем только новый файл
             addFileToGrid(filesListContainer, newFileData);
             
-            // Обновляем только счетчик
             updateFileCount(fileCountLabel, allFiles.length, totalFilesCount);
         }
     }
+
+// ... existing code ...
+
+// ... existing code ...
 
     // --- Init Upload Manager ---
     const uploadManager = new UploadManager(handleFileUploaded);
@@ -183,6 +220,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.copyToClipboard = copyToClipboard;
 
     // --- Pagination Logic ---
+    // ... existing code ...
+
+    // --- Pagination Logic ---
+    // ... existing code ...
+
+    // --- Pagination Logic ---
     async function loadNextBatch() {
         try {
             const sortConfig = sortManager.getSortConfig();
@@ -203,20 +246,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     hasMoreFiles = false;
                     if (allFiles.length === 0) {
                         renderFilesGrid(filesListContainer, []);
+                        updateFileCount(fileCountLabel, 0, 0);
                     }
                     return;
                 }
 
                 allFiles = [...allFiles, ...newFiles];
                 
+                // Обновляем общее количество файлов
+                if (response.total !== undefined) {
+                    totalFilesCount = response.total;
+                }
+                
                 if (currentPage === 1) {
-                    renderFilesGrid(filesListContainer, allFiles);
+                    refreshGridFromState();
                 } else {
                     newFiles.forEach(file => addFileToGrid(filesListContainer, file));
                 }
 
-                const total = response.total || allFiles.length;
-                updateFileCount(fileCountLabel, allFiles.length, total);
+                updateFileCount(fileCountLabel, allFiles.length, totalFilesCount);
                 
                 if (newFiles.length < BATCH_SIZE) {
                     hasMoreFiles = false;
@@ -234,6 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
             isLoadingBatch = false;
         }
     }
+
+// ... existing code ...
+
+// ... existing code ...
 
     // --- Event Listeners: Uploads ---
 

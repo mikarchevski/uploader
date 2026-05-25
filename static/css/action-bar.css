@@ -138,21 +138,22 @@
 }
 
 /* --- АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ (до 768px) --- */
+/* --- АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ (до 768px) --- */
 @media (max-width: 768px) {
     .file-action-bar {
-        left: 0;
-        right: 0;
-        transform: translateY(-100%);
-        width: 100%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -100%);
+        width: 90%;
         min-width: unset;
-        max-width: 100%;
+        max-width: 90%;
         border-radius: 0 0 16px 16px;
         padding: 0.75rem 1rem;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     }
 
     .file-action-bar.active {
-        transform: translateY(0);
+        transform: translate(-50%, 0);
     }
 
     .action-bar-content {
