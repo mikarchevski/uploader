@@ -4,7 +4,7 @@ import sqlite3
 import logging
 import zipfile
 import io
-from flask import request, jsonify, send_file, send_from_directory, session
+from flask import request, jsonify, send_file, send_from_directory, session, abort
 from datetime import datetime
 import uuid
 
@@ -25,7 +25,7 @@ from .database import (
     delete_files_in_folder,
     get_files_paginated
 )
-from .utils import generate_short_id, format_file_size, compute_file_hash
+from .utils import generate_short_id, format_file_size, compute_file_hash, safe_join_paths, validate_path_safety
 from .preview import get_preview_data
 from .config_constants import (
     SHORT_ID_LENGTH,
@@ -71,6 +71,13 @@ def register_file_routes(app):
                 logger.warning("[ZIP] Invalid request: missing path or user_id")
                 return jsonify({'error': 'Invalid request'}), 400
 
+            # ЗАЩИТА ОТ PATH TRAVERSAL: валидируем folder_path
+            try:
+                validate_path_safety(folder_path, UPLOAD_FOLDER)
+            except ValueError as e:
+                logger.warning(f"[ZIP] Path traversal attempt blocked: {e}")
+                return jsonify({'error': 'Invalid folder path'}), 400
+
             # Используем новую helper-функцию
             files_to_zip = get_files_in_folder(user_id, folder_path, include_subfolders=True)
 
@@ -84,7 +91,13 @@ def register_file_routes(app):
                 for file_data in files_to_zip:
                     unique_name = file_data['unique_name']
                     original_filename = file_data['original_filename']
-                    filepath = os.path.join(UPLOAD_FOLDER, unique_name)
+                    
+                    # БЕЗОПАСНОЕ объединение путей
+                    try:
+                        filepath = safe_join_paths(UPLOAD_FOLDER, unique_name)
+                    except ValueError as e:
+                        logger.error(f"[ZIP] Path traversal blocked for file {unique_name}: {e}")
+                        continue  # Пропускаем опасные файлы
                     
                     if os.path.exists(filepath):
                         try:
@@ -124,7 +137,13 @@ def register_file_routes(app):
             if not file_data:
                 return jsonify({'error': 'File not found'}), 404
             
-            filepath = os.path.join(UPLOAD_FOLDER, file_data['unique_name'])
+            # БЕЗОПАСНОЕ получение пути к файлу
+            try:
+                filepath = safe_join_paths(UPLOAD_FOLDER, file_data['unique_name'])
+            except ValueError as e:
+                logger.error(f"[PREVIEW] Path traversal blocked: {e}")
+                return jsonify({'error': 'Invalid file path'}), 400
+            
             ext = os.path.splitext(file_data['original_filename'])[1].lower()
             
             if not os.path.exists(filepath):
@@ -136,7 +155,6 @@ def register_file_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
-    # --- СПИСОК ФАЙЛОВ ---
     @app.route('/api/files', methods=['GET'])
     @rate_limit(RATE_LIMIT_LIST_FILES)
     def list_files_api():
@@ -227,9 +245,6 @@ def register_file_routes(app):
             import traceback
             logger.error(traceback.format_exc())
             return jsonify({'exists': False, 'error': str(e)}), 200
-
-    # --- ЗАГРУЗКА ФАЙЛА ---
-        # ... existing code ...
 
     # --- ЗАГРУЗКА ФАЙЛА ---
     @app.route('/upload', methods=['POST'])
@@ -365,7 +380,6 @@ def register_file_routes(app):
             return jsonify({'error': 'Internal Server Error'}), 500
 
     # ... existing code ...
-
     # --- УДАЛЕНИЕ ОДНОГО ФАЙЛА ---
     @app.route('/api/delete/<short_id>', methods=['DELETE'])
     @rate_limit(RATE_LIMIT_DELETE)
@@ -382,7 +396,13 @@ def register_file_routes(app):
             
             file_hash = file_data['file_hash']
             unique_name = file_data['unique_name']
-            filepath = os.path.join(UPLOAD_FOLDER, unique_name)
+            
+            # БЕЗОПАСНОЕ получение пути к файлу
+            try:
+                filepath = safe_join_paths(UPLOAD_FOLDER, unique_name)
+            except ValueError as e:
+                logger.error(f"[DELETE] Path traversal blocked: {e}")
+                return jsonify({'error': 'Invalid file path'}), 400
             
             log_msg = f"[DELETE] User: {user_id} | File: {file_data['original_filename']} ({short_id})"
             logger.info(log_msg)
@@ -419,6 +439,14 @@ def register_file_routes(app):
             
             if 'folder_path' in data:
                 folder_path = data['folder_path']
+                
+                # ЗАЩИТА ОТ PATH TRAVERSAL
+                try:
+                    validate_path_safety(folder_path, UPLOAD_FOLDER)
+                except ValueError as e:
+                    logger.warning(f"[BULK DELETE] Path traversal attempt blocked: {e}")
+                    return jsonify({'error': 'Invalid folder path'}), 400
+                
                 logger.info(f"[BULK DELETE] User: {user_id} | Folder: {folder_path}")
                 client_logger.info(f"[BULK DELETE] User: {user_id} | Folder: {folder_path}")
 
@@ -433,7 +461,12 @@ def register_file_routes(app):
                     u_name = get_unique_name_by_hash(f_hash)
                     
                     if u_name:
-                        f_path = os.path.join(UPLOAD_FOLDER, u_name)
+                        # БЕЗОПАСНОЕ получение пути
+                        try:
+                            f_path = safe_join_paths(UPLOAD_FOLDER, u_name)
+                        except ValueError as e:
+                            logger.error(f"[BULK DELETE] Path traversal blocked: {e}")
+                            continue
                         
                         remaining = get_files_by_hash(f_hash)
                         if len(remaining) == 0 and os.path.exists(f_path):
@@ -451,7 +484,13 @@ def register_file_routes(app):
                     if file_data and file_data.get('owner_id') == user_id:
                         f_hash = file_data['file_hash']
                         u_name = file_data['unique_name']
-                        f_path = os.path.join(UPLOAD_FOLDER, u_name)
+                        
+                        # БЕЗОПАСНОЕ получение пути
+                        try:
+                            f_path = safe_join_paths(UPLOAD_FOLDER, u_name)
+                        except ValueError as e:
+                            logger.error(f"[BULK DELETE] Path traversal blocked: {e}")
+                            continue
                         
                         delete_file_by_short_id(s_id)
                         deleted_ids.append(s_id)
@@ -467,6 +506,7 @@ def register_file_routes(app):
             import traceback
             logger.error(traceback.format_exc())
             return jsonify({'error': str(e)}), 500
+    
     # --- СКАЧИВАНИЕ ---
     @app.route('/d/<short_id>')
     def download_short(short_id):
@@ -483,7 +523,13 @@ def register_file_routes(app):
             logger.info(log_msg)
             client_logger.info(log_msg)
             
-            filepath = os.path.join(UPLOAD_FOLDER, file_data['unique_name'])
+            # БЕЗОПАСНОЕ получение пути к файлу
+            try:
+                filepath = safe_join_paths(UPLOAD_FOLDER, file_data['unique_name'])
+            except ValueError as e:
+                logger.error(f"[DOWNLOAD] Path traversal blocked: {e}")
+                return 'Invalid file path', 400
+            
             return send_file(filepath, as_attachment=True, download_name=file_data['original_filename'])
         except Exception as e:
             logger.error(f"[DOWNLOAD] Error: {e}")
@@ -492,6 +538,13 @@ def register_file_routes(app):
     @app.route('/downloads/<unique_name>/<original_filename>')
     def download_file(unique_name, original_filename):
         try:
+            # ЗАЩИТА ОТ PATH TRAVERSAL: проверяем unique_name
+            try:
+                safe_path = safe_join_paths(UPLOAD_FOLDER, unique_name)
+            except ValueError as e:
+                logger.error(f"[DOWNLOAD] Path traversal attempt blocked: {e}")
+                abort(400, "Invalid file path")
+            
             return send_from_directory(UPLOAD_FOLDER, unique_name, as_attachment=True, download_name=original_filename)
         except Exception as e:
             return str(e), 404

@@ -16,6 +16,13 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
+# Директория для кэша превью (вне проекта)
+PREVIEW_CACHE_FOLDER = os.environ.get(
+    'PREVIEW_CACHE_FOLDER', 
+    '/opt/filebrowser/data/previews'
+)
+os.makedirs(PREVIEW_CACHE_FOLDER, exist_ok=True)
+
 # Создаем директорию для сессий
 SESSION_FOLDER = '/tmp/sessions'
 os.makedirs(SESSION_FOLDER, exist_ok=True)

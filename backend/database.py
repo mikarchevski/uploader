@@ -325,6 +325,8 @@ def count_files_in_folder(user_id, folder_path, include_subfolders=False):
         
         return c.fetchone()[0]
 
+# ... existing code ...
+
 def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', sort_order='DESC', folder_path=None):
     """
     Получает файлы с пагинацией и сортировкой.
@@ -340,15 +342,16 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
     Returns:
         Кортеж (список файлов, общее количество)
     """
+    from .config_constants import SORT_FIELD_MAPPING, SORT_ORDER_MAPPING
+    
     offset = (page - 1) * per_page
     
-    # Валидация поля сортировки
-    allowed_sort_fields = ['upload_date', 'original_filename', 'file_size', 'folder_path']
-    if sort_field not in allowed_sort_fields:
-        sort_field = 'upload_date'
+    # БЕЗОПАСНЫЙ маппинг: получаем реальное имя колонки из словаря
+    # Если передано неизвестное значение → используем default
+    safe_sort_field = SORT_FIELD_MAPPING.get(sort_field, 'upload_date')
     
-    # Валидация порядка сортировки
-    sort_order = sort_order.upper() if sort_order.upper() in ['ASC', 'DESC'] else 'DESC'
+    # Безопасный маппинг порядка сортировки
+    safe_sort_order = SORT_ORDER_MAPPING.get(str(sort_order).upper(), 'DESC')
     
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
@@ -374,11 +377,12 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
         c.execute(f'SELECT COUNT(*) {base_query}', count_params)
         total_count = c.fetchone()[0]
         
-        # Получаем файлы с пагинацией
+        # БЕЗОПАСНАЯ сборка запроса
+        # safe_sort_field и safe_sort_order гарантированно содержат только разрешённые значения
         query = f'''
             SELECT short_id, original_filename, file_size, upload_date, download_count, folder_path
             {base_query}
-            ORDER BY {sort_field} {sort_order}
+            ORDER BY {safe_sort_field} {safe_sort_order}
             LIMIT ? OFFSET ?
         '''
         c.execute(query, data_params)
