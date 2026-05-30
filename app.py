@@ -53,11 +53,53 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from backend import create_app as backend_create_app 
 
 def create_app():
+
+    # Проверяем конфигурацию перед созданием приложения
+    from check_config import check_configuration
+    if not check_configuration():
+        raise RuntimeError("❌ Конфигурация некорректна. Проверьте переменные окружения.")
+
     app = backend_create_app()
     
     # ВАЖНО: Добавляем наш хендлер в основной логгер приложения Flask
     app.logger.addHandler(server_handler)
     app.logger.setLevel(logging.INFO)
+
+    # === MIDDLEWARE: Автоматическая установка correlation ID ===
+    @app.before_request
+    def set_correlation_id():
+        """Устанавливает correlation ID для каждого запроса"""
+        from flask import request
+        from backend.utils import get_or_create_correlation_id
+        
+        corr_id = get_or_create_correlation_id()
+        
+        # Логируем начало запроса с correlation ID
+        server_logger.info(
+            f"[REQUEST START] {request.method} {request.path} | "
+            f"IP: {request.remote_addr} | "
+            f"CorrelationID: {corr_id}"
+        )
+    
+    @app.after_request
+    def log_request_complete(response):
+        """Логирует завершение запроса с correlation ID"""
+        from flask import request
+        from backend.utils import get_or_create_correlation_id
+        
+        corr_id = get_or_create_correlation_id()
+        
+        # Добавляем correlation ID в ответ (для клиента)
+        response.headers['X-Correlation-ID'] = corr_id
+        
+        # Логируем завершение
+        server_logger.info(
+            f"[REQUEST END] {request.method} {request.path} | "
+            f"Status: {response.status_code} | "
+            f"CorrelationID: {corr_id}"
+        )
+        
+        return response
     
     CORS(app, supports_credentials=True)
     

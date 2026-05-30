@@ -1,4 +1,3 @@
-# utils.py
 import uuid
 import hashlib
 import random
@@ -6,7 +5,8 @@ import string
 import math
 import os
 import re
-from flask import abort
+import time
+from flask import abort, g
 from .config_constants import (
     FOLDER_PATH_REGEX, 
     MAX_FOLDER_DEPTH, 
@@ -14,6 +14,32 @@ from .config_constants import (
     DANGEROUS_PATH_PATTERNS
 )
 
+
+def generate_correlation_id():
+    """
+    Генерирует уникальный ID для отслеживания запроса.
+    Формат: timestamp-random (например: 1717094400-a3f5b2c1)
+    
+    Returns:
+        str: Уникальный correlation ID
+    """
+    timestamp = int(time.time())
+    random_part = uuid.uuid4().hex[:8]
+    return f"{timestamp}-{random_part}"
+
+def get_or_create_correlation_id():
+    """
+    Получает correlation ID из контекста Flask или создаёт новый.
+    
+    Returns:
+        str: Correlation ID текущего запроса
+    """
+    if not hasattr(g, 'correlation_id'):
+        # Проверяем, передан ли ID в заголовках (от клиента)
+        from flask import request
+        g.correlation_id = request.headers.get('X-Correlation-ID') or generate_correlation_id()
+    
+    return g.correlation_id
 def generate_short_id(length=6):
     """Генерирует уникальный короткий ID."""
     chars = string.ascii_letters + string.digits
