@@ -7,9 +7,25 @@ export class FolderNavigation {
     constructor(options) {
         this.currentFolderPath = null;
         this.filesListContainer = options.filesListContainer;
-        this.onNavigate = options.onNavigate; // callback при смене папки
+        this.onNavigate = options.onNavigate;
+        this.breadcrumbsContainer = document.getElementById('breadcrumbs');
 
+        this.initEventDelegation();
         this.updateBreadcrumbs();
+    }
+
+    initEventDelegation() {
+        if (!this.breadcrumbsContainer) return;
+        
+        this.breadcrumbsContainer.addEventListener('click', (e) => {
+            const crumb = e.target.closest('.crumb');
+            if (!crumb) return;
+            
+            e.preventDefault();
+            
+            const folderPath = crumb.dataset.folderPath;
+            this.navigateToFolder(folderPath === 'null' ? null : folderPath);
+        });
     }
 
     getCurrentFolder() {
@@ -24,14 +40,13 @@ export class FolderNavigation {
     }
 
     updateBreadcrumbs() {
-        const breadcrumbsContainer = document.getElementById('breadcrumbs');
-        if (!breadcrumbsContainer) return;
+        if (!this.breadcrumbsContainer) return;
         
         if (!this.currentFolderPath) {
-            breadcrumbsContainer.innerHTML = '<span class="crumb active">🏠 Главная</span>';
+            this.breadcrumbsContainer.innerHTML = '<span class="crumb active" data-folder-path="null">🏠 Главная</span>';
         } else {
             const parts = this.currentFolderPath.split('/');
-            let crumbsHTML = '<span class="crumb" onclick="window.folderNav.navigateToFolder(null)">🏠 Главная</span>';
+            let crumbsHTML = '<span class="crumb" data-folder-path="null">🏠 Главная</span>';
             
             let accumulatedPath = '';
             parts.forEach((part, index) => {
@@ -44,13 +59,13 @@ export class FolderNavigation {
                 const pathValue = accumulatedPath;
                 
                 if (isLast) {
-                    crumbsHTML += `<span class="separator">/</span><span class="crumb active">📁 ${this.escapeHtml(part)}</span>`;
+                    crumbsHTML += `<span class="separator">/</span><span class="crumb active" data-folder-path="${this.escapeHtml(pathValue)}">📁 ${this.escapeHtml(part)}</span>`;
                 } else {
-                    crumbsHTML += `<span class="separator">/</span><span class="crumb" onclick="window.folderNav.navigateToFolder('${this.escapeHtml(pathValue)}')">${this.escapeHtml(part)}</span>`;
+                    crumbsHTML += `<span class="separator">/</span><span class="crumb" data-folder-path="${this.escapeHtml(pathValue)}">${this.escapeHtml(part)}</span>`;
                 }
             });
             
-            breadcrumbsContainer.innerHTML = crumbsHTML;
+            this.breadcrumbsContainer.innerHTML = crumbsHTML;
         }
     }
 

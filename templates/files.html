@@ -65,19 +65,9 @@
         {% endif %}
     </div>
 
-    <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = '✓ Скопировано';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                }, 1500);
-            }).catch(err => {
-                console.error('Ошибка копирования: ', err);
-            });
-        }
+    <script type="module">
+        import { initClipboard } from '/static/js/clipboard.js';
+        initClipboard();
     </script>
 </body>
 </html>

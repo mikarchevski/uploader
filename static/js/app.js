@@ -1,22 +1,16 @@
-import { copyToClipboard, showToast} from './utils.js';
-import {
-    updateFileCount,
-    renderFilesGrid,
-    addFileToGrid,
-    clearPreviewCache
-} from './ui.js';
-import { 
-    fetchFilesPage
-} from './api.js';
-import { initFileManager } from './fileManager.js';
-import { sortFiles } from './sortUtils.js';
-import { UploadManager } from './uploadManager.js';
-import { clientLogger } from './logger.js';
-import { CONFIG } from './config.js';
 import { FolderNavigation } from './folderNavigation.js';
-import { ThemeManager } from './themeManager.js';
 import { SortManager } from './sortManager.js';
+import { ThemeManager } from './themeManager.js';
+import { UploadManager } from './uploadManager.js';
 import { DragDropHandler } from './dragDropHandler.js';
+import { initFileManager } from './fileManager.js';
+import { clearPreviewCache, renderFilesGrid, updateFileCount, addFileToGrid } from './ui.js';
+import { initClipboard } from './clipboard.js';
+import { CONFIG } from './config.js';
+import { clientLogger } from './logger.js';
+import { fetchFilesPage } from './api.js';
+import { sortFiles } from './sortUtils.js';
+import { showToast } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     clientLogger.info('Application initialized');
@@ -74,9 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
             loadNextBatch();
         }
     });
-    
-    // Делаем доступным глобально для onclick в хлебных крошках
-    window.folderNav = folderNav;
 
     // 2. Theme Manager
     const themeManager = new ThemeManager({
@@ -110,21 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helper Functions ---
 
-    // ... existing code ...
-
-    // --- Helper Functions ---
-
-    // ... existing code ...
-
-    // --- Helper Functions ---
-
-    // ... existing code ...
-
-    // ... existing code ...
-
-    // ... existing code ...
-
-    // ... existing code ...
 
     function refreshGridFromState() {
     const sortConfig = sortManager.getSortConfig();
@@ -151,16 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    renderFilesGrid(filesListContainer, filesToShow);
+    renderFilesGrid(filesListContainer, filesToShow, folderNav);
     updateFileCount(fileCountLabel, filesToShow.length, totalFilesCount);
 }
 
-// ... existing code ...
-
-// ... existing code ...
-
-// ... existing code ...
-// ... existing code ...
 
     function handleFileUploaded(newFileData) {
         const exists = allFiles.some(f => f.short_id === newFileData.short_id);
@@ -216,14 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearPreviewCache();
         });
     }
-
-    window.copyToClipboard = copyToClipboard;
-
-    // --- Pagination Logic ---
-    // ... existing code ...
-
-    // --- Pagination Logic ---
-    // ... existing code ...
+    initClipboard();
 
     // --- Pagination Logic ---
     async function loadNextBatch() {
@@ -245,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (newFiles.length === 0) {
                     hasMoreFiles = false;
                     if (allFiles.length === 0) {
-                        renderFilesGrid(filesListContainer, []);
+                        renderFilesGrid(filesListContainer, [], folderNav);
                         updateFileCount(fileCountLabel, 0, 0);
                     }
                     return;
@@ -365,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Init FileManager ---
-    initFileManager(filesListContainer, fileCountLabel);
+    initFileManager(filesListContainer, fileCountLabel, folderNav);
     
     // Start loading files
     loadNextBatch();

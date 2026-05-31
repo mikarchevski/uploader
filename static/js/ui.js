@@ -208,15 +208,15 @@ export function attachDoubleClick(card, file) {
 // --- КОНЕЦ LIGHTBOX ---
 
 
-export function renderFilesGrid(filesListContainer, files) {
-    const currentFolder = window.folderNav ? window.folderNav.getCurrentFolder() : null;
+export function renderFilesGrid(filesListContainer, files, folderNav = null) {
+    const currentFolder = folderNav ? folderNav.getCurrentFolder() : null;
 
     const spinnerWrapper = filesListContainer.querySelector('.spinner-wrapper');
     if (spinnerWrapper) spinnerWrapper.remove();
     filesListContainer.classList.remove('loading');
 
     if (!files || files.length === 0) {
-        const isInFolder = window.folderNav && window.folderNav.getCurrentFolder();
+        const isInFolder = folderNav && folderNav.getCurrentFolder();
         filesListContainer.innerHTML = `<div class="no-files"><h3>${isInFolder ? 'Папка пуста' : 'Здесь пока пусто'}</h3></div>`;
         return;
     }

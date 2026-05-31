@@ -2,7 +2,7 @@
 import { copyToClipboard, showToast } from './utils.js';
 import { updateFileCount } from './ui.js';
 
-export function initFileManager(filesListContainer, fileCountLabel) {
+export function initFileManager(filesListContainer, fileCountLabel, folderNav = null) {
     const fileActionBar = document.getElementById('fileActionBar');
     const actionFileName = document.getElementById('actionFileName');
     
@@ -437,8 +437,8 @@ export function initFileManager(filesListContainer, fileCountLabel) {
 
         if (card.classList.contains('folder-card')) {
             const folderPath = card.getAttribute('data-folder-path');
-            if (folderPath && window.folderNav) {
-                window.folderNav.navigateToFolder(folderPath);
+            if (folderPath && folderNav) {
+                folderNav.navigateToFolder(folderPath);
             }
         }
     });
