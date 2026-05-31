@@ -1,6 +1,7 @@
 // uploadManager.js
 import { computeFileHash } from './utils.js';
 import { checkFileExists, uploadFile } from './api.js';
+import { clientLogger } from './logger.js';
 
 export class UploadManager {
     constructor(onUploadComplete) {
@@ -371,9 +372,7 @@ export class UploadManager {
                             return; 
                         }
 
-                         if (res && res.success) {
-                                console.log('[UPLOAD] Server response:', res);
-                                
+                         if (res && res.success) {                                
                                 if (res.message === 'Файл уже загружен' || res.message === 'File already exists') {
                                     uiItem.setStatus('Файл уже загружен');
                                     clientLogger.info(`File already exists: ${file.name}`);

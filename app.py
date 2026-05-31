@@ -107,8 +107,8 @@ def create_app():
         app=app,
         key_func=get_remote_address,
         default_limits=[
-            "200 per day",
-            "50 per hour"
+            "200000 per day",
+            "5000 per hour"
         ],
         storage_uri="memory://",
         strategy="fixed-window"
@@ -129,6 +129,7 @@ def create_app():
     
     # --- ЭНДПОИНТ ДЛЯ КЛИЕНТСКИХ ЛОГОВ ---
     @app.route('/api/log', methods=['POST'])
+    @limiter.exempt
     def client_log_endpoint():
         try:
             data = request.get_json()
