@@ -6,6 +6,57 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
+_files_count_cache = {}
+_CACHE_TTL = 300  # 5 минут
+
+def _invalidate_count_cache(user_id=None):
+    """
+    Инвалидирует кэш количества файлов.
+    
+    Args:
+        user_id: ID пользователя (если None, очищает весь кэш)
+    """
+    global _files_count_cache
+    
+    if user_id:
+        _files_count_cache.pop(user_id, None)
+        logger.debug(f"Invalidated count cache for user {user_id}")
+    else:
+        _files_count_cache.clear()
+        logger.debug("Invalidated all count cache")
+
+def _get_cached_count(user_id):
+    """
+    Получает количество файлов из кэша если он актуален.
+    
+    Returns:
+        int или None если кэш отсутствует/устарел
+    """
+    global _files_count_cache
+    
+    if user_id in _files_count_cache:
+        cache_entry = _files_count_cache[user_id]
+        age = datetime.now().timestamp() - cache_entry['timestamp']
+        
+        if age < _CACHE_TTL:
+            logger.debug(f"Using cached file count for user {user_id}: {cache_entry['count']}")
+            return cache_entry['count']
+        else:
+            # Кэш устарел
+            del _files_count_cache[user_id]
+    
+    return None
+
+def _set_cached_count(user_id, count):
+    """Сохраняет количество файлов в кэш."""
+    global _files_count_cache
+    
+    _files_count_cache[user_id] = {
+        'count': count,
+        'timestamp': datetime.now().timestamp()
+    }
+    logger.debug(f"Cached file count for user {user_id}: {count}")
+
 def init_db():
     """Инициализирует базу данных и создает таблицу, если она не существует."""
     conn = None
@@ -124,6 +175,10 @@ def insert_file(short_id, unique_name, original_filename, file_hash, file_size, 
         
         conn.commit()
         logger.debug(f"File inserted: {short_id}")
+        
+        # Инвалидируем кэш количества файлов для этого пользователя
+        if owner_id:
+            _invalidate_count_cache(owner_id)
     
     except sqlite3.IntegrityError as e:
         logger.error(f"Integrity error inserting file {short_id}: {e}")
@@ -257,15 +312,27 @@ def verify_password(stored_hash, password):
     """Проверяет пароль."""
     return check_password_hash(stored_hash, password)
 
+
 def delete_file_by_short_id(short_id):
     """Удаляет запись о файле из БД с явной транзакцией."""
     conn = None
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+        
+        # Сначала получаем owner_id для инвалидации кэша
+        c.execute('SELECT owner_id FROM files WHERE short_id = ?', (short_id,))
+        row = c.fetchone()
+        owner_id = row[0] if row else None
+        
         c.execute('DELETE FROM files WHERE short_id = ?', (short_id,))
         conn.commit()
         logger.debug(f"File deleted from DB: {short_id}")
+        
+        # Инвалидируем кэш количества файлов
+        if owner_id:
+            _invalidate_count_cache(owner_id)
+    
     except Exception as e:
         logger.error(f"Error deleting file {short_id} from DB: {e}")
         if conn:
@@ -427,6 +494,9 @@ def delete_files_in_folder(user_id, folder_path, include_subfolders=False):
         conn.commit()
         logger.info(f"Deleted {len(deleted_ids)} files from folder: {folder_path}")
         
+        # Инвалидируем кэш количества файлов
+        _invalidate_count_cache(user_id)
+        
         return deleted_ids
     
     except Exception as e:
@@ -492,7 +562,7 @@ def count_files_in_folder(user_id, folder_path, include_subfolders=False):
 
 def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', sort_order='DESC', folder_path=None):
     """
-    Получает файлы с пагинацией и сортировкой.
+    Получает файлы с пагинацией и сортировкой с оптимизированным COUNT.
     
     Args:
         user_id: ID пользователя
@@ -538,9 +608,21 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
             count_params = (user_id,)
             data_params = (user_id, per_page, offset)
         
-        # Получаем общее количество
-        c.execute(f'SELECT COUNT(*) {base_query}', count_params)
-        total_count = c.fetchone()[0]
+        # ОПТИМИЗАЦИЯ: Проверяем кэш для общего количества
+        # Используем кэш ТОЛЬКО если нет фильтра по папке (для простоты)
+        if not folder_path:
+            cached_count = _get_cached_count(user_id)
+            if cached_count is not None:
+                total_count = cached_count
+            else:
+                # Кэша нет - делаем запрос и сохраняем в кэш
+                c.execute(f'SELECT COUNT(*) {base_query}', count_params)
+                total_count = c.fetchone()[0]
+                _set_cached_count(user_id, total_count)
+        else:
+            # Для фильтров по папке всегда делаем запрос (кэш сложнее инвалидировать)
+            c.execute(f'SELECT COUNT(*) {base_query}', count_params)
+            total_count = c.fetchone()[0]
         
         # БЕЗОПАСНАЯ сборка запроса
         # safe_sort_field и safe_sort_order гарантированно содержат только разрешённые значения
