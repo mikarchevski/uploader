@@ -361,30 +361,52 @@ export function renderFilesGrid(filesListContainer, files) {
     loadPreviewsBatch(files);
 }
 
+// ... existing code ...
+
 async function loadPreviewForCard(card, shortId) {
     const cachedPreview = getCachedPreview(shortId);
     if (cachedPreview) {
+        console.log(`[PREVIEW] ✓ Using cached preview for ${shortId}`);
         applyPreviewToCard(card, cachedPreview);
         return;
     }
     
     try {
-        const res = await fetch(`/api/preview/${shortId}`);
+        console.log(`[PREVIEW] Fetching preview for ${shortId}...`);
+        
+        // Используем новый endpoint с бинарным изображением
+        const res = await fetch(`/api/preview-image/${shortId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'image/*'
+            }
+        });
+        
         if (!res.ok) {
+            console.warn(`[PREVIEW] ✗ Failed for ${shortId}: status ${res.status}`);
             clientLogger.warn(`Preview fetch failed for ${shortId}: status ${res.status}`);
             return;
         }
         
-        const data = await res.json();
+        // Конвертируем blob в base64 для кэширования
+        const blob = await res.blob();
+        const reader = new FileReader();
         
-        if (data.has_preview && data.preview) {
-            savePreviewToCache(shortId, data.preview);
-            applyPreviewToCard(card, data.preview);
-        }
+        reader.onloadend = function() {
+            const base64data = reader.result;
+            savePreviewToCache(shortId, base64data);
+            applyPreviewToCard(card, base64data);
+            clientLogger.info(`Applied preview for ${shortId} loaded (${blob.size} bytes)`);
+        };
+        
+        reader.readAsDataURL(blob);
+        
     } catch (e) {
-        clientLogger.error('Ошибка загрузки превью', e.message);
+        console.error(`[PREVIEW] ✗ Error for ${shortId}:`, e.message);
+        clientLogger.error(`Preview fetch error for ${shortId}:`, e.message);
     }
 }
+
 
 export { loadPreviewForCard };
 
@@ -398,6 +420,7 @@ async function loadPreviewsBatch(files) {
         .filter(id => id); // убираем undefined
     
     if (shortIds.length === 0) return;
+    clientLogger.info(`[PREVIEW BATCH] Processing ${shortIds.length} files for preview loading`);
     
     const cardsMap = new Map();
     
@@ -411,6 +434,7 @@ async function loadPreviewsBatch(files) {
     
     // Проверяем кэш и разделяем файлы на закэшированные и требующие загрузки
     const uncachedIds = [];
+    let cachedCount = 0;
     
     shortIds.forEach(shortId => {
         const cachedPreview = getCachedPreview(shortId);
@@ -418,67 +442,68 @@ async function loadPreviewsBatch(files) {
         
         if (cachedPreview && card) {
             applyPreviewToCard(card, cachedPreview);
+            cachedCount++;
         } else if (card) {
             uncachedIds.push(shortId);
         }
     });
+    clientLogger.info(`[PREVIEW BATCH] Cache: ${cachedCount}, Need to load: ${uncachedIds.length}`);
     
     // Если все файлы в кэше, выходим
     if (uncachedIds.length === 0) {
-        clientLogger.debug(`All ${shortIds.length} previews served from cache`);
+        clientLogger.info(`All ${shortIds.length} previews served from cache`);
         return;
     }
     
-    try {
-        // Отправляем ОДИН запрос для всех некэшированных превью
-        const response = await fetch('/api/previews/batch', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ short_ids: uncachedIds })
-        });
-        
-        if (!response.ok) {
-            clientLogger.warn(`Batch preview fetch failed: status ${response.status}, falling back to individual requests`);
-            // Fallback: загружаем превью по одному для тех, что не удалось
-            uncachedIds.forEach(shortId => {
-                const card = cardsMap.get(shortId);
-                if (card) {
-                    loadPreviewForCard(card, shortId);
+    // Загружаем превью параллельно через отдельные запросы к /api/preview-image
+    // Это эффективнее чем batch с base64
+    const promises = uncachedIds.map(async (shortId) => {
+        try {
+            const res = await fetch(`/api/preview-image/${shortId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'image/*'
                 }
             });
-            return;
+            
+            if (!res.ok) {
+                clientLogger.warn(`Preview fetch failed for ${shortId}: ${res.status}`);
+                return null;
+            }
+            
+            const blob = await res.blob();
+            const reader = new FileReader();
+            
+            return new Promise((resolve) => {
+                reader.onloadend = function() {
+                    const base64data = reader.result;
+                    savePreviewToCache(shortId, base64data);
+                    
+                    const card = cardsMap.get(shortId);
+                    if (card) {
+                        applyPreviewToCard(card, base64data);
+                    }
+                    
+                    resolve({ shortId, size: blob.size });
+                };
+                reader.readAsDataURL(blob);
+            });
+            
+        } catch (e) {
+            clientLogger.error(`Preview fetch error for ${shortId}:`, e.message);
+            return null;
         }
-        
-        const previews = await response.json();
-        
-        // Применяем полученные превью к карточкам
-        let loadedCount = 0;
-        Object.entries(previews).forEach(([shortId, previewData]) => {
-            if (previewData.has_preview && previewData.preview) {
-                savePreviewToCache(shortId, previewData.preview);
-                const card = cardsMap.get(shortId);
-                if (card) {
-                    applyPreviewToCard(card, previewData.preview);
-                    loadedCount++;
-                }
-            }
-        });
-        
-        clientLogger.info(`Loaded ${loadedCount} previews in batch (${uncachedIds.length - loadedCount} without preview)`);
-        
-    } catch (e) {
-        clientLogger.error('Ошибка пакетной загрузки превью, fallback к индивидуальным запросам', e.message);
-        // Fallback при ошибке сети
-        uncachedIds.forEach(shortId => {
-            const card = cardsMap.get(shortId);
-            if (card) {
-                loadPreviewForCard(card, shortId);
-            }
-        });
-    }
+    });
+    
+    // Ждём завершения всех загрузок
+    const results = await Promise.allSettled(promises);
+    
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value !== null).length;
+    const failed = results.length - successful;
+    clientLogger.info(`Loaded ${successful} previews in batch (${failed} failed)`);
 }
+
+// ... existing code ...
 
 function applyPreviewToCard(card, previewData) {
     const placeholder = card.querySelector('.file-icon-placeholder');

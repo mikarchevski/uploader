@@ -171,7 +171,6 @@ def register_file_routes(app):
     # --- ПРЕВЬЮ ФАЙЛА ---
     # ... existing code ...
 
-    # --- ПРЕВЬЮ ФАЙЛА ---
     @app.route('/api/preview/<short_id>')
     @rate_limit(RATE_LIMIT_PREVIEW)
     def get_file_preview(short_id):
@@ -211,6 +210,92 @@ def register_file_routes(app):
         except Exception as e:
             import traceback
             logger.error(f"[PREVIEW] Error: {str(e)} | Traceback: {traceback.format_exc()} | CorrelationID: {correlation_id}")
+            return error_response('Failed to generate preview', 500, correlation_id)
+
+    # --- НОВЫЙ ENDPOINT: БИНАРНОЕ ПРЕВЬЮ С КЭШИРОВАНИЕМ ---
+    @app.route('/api/preview-image/<short_id>')
+    @rate_limit(RATE_LIMIT_PREVIEW)
+    def get_file_preview_image(short_id):
+        """
+        Отдаёт превью как бинарное изображение с правильными HTTP заголовками кэширования.
+        Это намного эффективнее чем base64 в JSON.
+        """
+        correlation_id = None
+        try:
+            from backend.utils import get_or_create_correlation_id
+            correlation_id = get_or_create_correlation_id()
+            
+            user_id = session.get('user_id')
+            if not user_id:
+                return error_response('Требуется авторизация', 401, correlation_id)
+            
+            file_data = get_file_by_short_id(short_id)
+            if not file_data:
+                return error_response('File not found', 404, correlation_id)
+            
+            # ПРОВЕРКА ПРАВ ДОСТУПА
+            if file_data.get('owner_id') != user_id:
+                logger.warning(f"[PREVIEW-IMAGE] Access denied: User {user_id} tried to access file {short_id}")
+                return error_response('Access denied', 403, correlation_id)
+            
+            # БЕЗОПАСНОЕ получение пути к файлу
+            try:
+                filepath = safe_join_paths(UPLOAD_FOLDER, file_data['unique_name'])
+            except ValueError as e:
+                logger.error(f"[PREVIEW-IMAGE] Path traversal blocked: {e} | CorrelationID: {correlation_id}")
+                return error_response('Invalid file path', 400, correlation_id)
+            
+            ext = os.path.splitext(file_data['original_filename'])[1].lower()
+            
+            if not os.path.exists(filepath):
+                return error_response('File not found', 404, correlation_id)
+            
+            # Генерируем или берём из кэша превью
+            cache_path = get_cached_preview_path(filepath)
+            
+            # Если кэша нет - генерируем
+            if not os.path.exists(cache_path):
+                preview_result = get_preview_data(filepath, ext)
+                
+                if not preview_result.get('has_preview'):
+                    return error_response('Preview not available', 404, correlation_id)
+                
+                # Извлекаем base64 и сохраняем как файл
+                preview_base64 = preview_result['preview']
+                if ',' in preview_base64:
+                    base64_data = preview_base64.split(',')[1]
+                else:
+                    base64_data = preview_base64
+                
+                image_data = base64.b64decode(base64_data)
+                with open(cache_path, 'wb') as f:
+                    f.write(image_data)
+                
+                logger.debug(f"[PREVIEW-IMAGE] Generated and cached: {short_id}")
+            
+            # Отдаём файл с правильными заголовками
+            from flask import send_file
+            
+            # Определяем MIME type
+            mime_type = 'image/jpeg'  # По умолчанию JPEG (так как мы конвертируем в JPEG)
+            
+            response = send_file(
+                cache_path,
+                mimetype=mime_type,
+                as_attachment=False,
+                download_name=f"preview_{short_id}.jpg"
+            )
+            
+            # АГРЕССИВНОЕ КЭШИРОВАНИЕ: 30 дней
+            response.headers['Cache-Control'] = 'public, max-age=2592000, immutable'
+            response.headers['ETag'] = f'"{os.path.getmtime(cache_path)}"'
+            response.headers['Expires'] = 'Thu, 31 Dec 2037 23:55:55 GMT'
+            
+            return response
+            
+        except Exception as e:
+            import traceback
+            logger.error(f"[PREVIEW-IMAGE] Error: {str(e)} | Traceback: {traceback.format_exc()} | CorrelationID: {correlation_id}")
             return error_response('Failed to generate preview', 500, correlation_id)
 
     # --- ПАКЕТНАЯ ЗАГРУЗКА ПРЕВЬЮ ---
