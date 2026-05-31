@@ -166,6 +166,12 @@ def register_file_routes(app):
             )
 
     # --- ПРЕВЬЮ ---
+    # ... existing code ...
+
+    # --- ПРЕВЬЮ ФАЙЛА ---
+    # ... existing code ...
+
+    # --- ПРЕВЬЮ ФАЙЛА ---
     @app.route('/api/preview/<short_id>')
     @rate_limit(RATE_LIMIT_PREVIEW)
     def get_file_preview(short_id):
@@ -174,9 +180,18 @@ def register_file_routes(app):
             from backend.utils import get_or_create_correlation_id
             correlation_id = get_or_create_correlation_id()
             
+            user_id = session.get('user_id')
+            if not user_id:
+                return error_response('Требуется авторизация', 401, correlation_id)
+            
             file_data = get_file_by_short_id(short_id)
             if not file_data:
                 return error_response('File not found', 404, correlation_id)
+            
+            # ПРОВЕРКА ПРАВ ДОСТУПА: можно смотреть превью только своих файлов
+            if file_data.get('owner_id') != user_id:
+                logger.warning(f"[PREVIEW] Access denied: User {user_id} tried to access file {short_id} owned by {file_data.get('owner_id')}")
+                return error_response('Access denied', 403, correlation_id)
             
             # БЕЗОПАСНОЕ получение пути к файлу
             try:
@@ -197,6 +212,82 @@ def register_file_routes(app):
             import traceback
             logger.error(f"[PREVIEW] Error: {str(e)} | Traceback: {traceback.format_exc()} | CorrelationID: {correlation_id}")
             return error_response('Failed to generate preview', 500, correlation_id)
+
+    # --- ПАКЕТНАЯ ЗАГРУЗКА ПРЕВЬЮ ---
+    @app.route('/api/previews/batch', methods=['POST'])
+    @rate_limit(RATE_LIMIT_PREVIEW)
+    def get_batch_previews():
+        """
+        Пакетная загрузка превью для нескольких файлов одним запросом.
+        Принимает JSON с массивом short_id и возвращает словарь превью.
+        """
+        correlation_id = None
+        try:
+            from backend.utils import get_or_create_correlation_id
+            correlation_id = get_or_create_correlation_id()
+            
+            user_id = session.get('user_id')
+            if not user_id:
+                return error_response('Требуется авторизация', 401, correlation_id)
+            
+            data = request.get_json()
+            if not data or 'short_ids' not in data:
+                return error_response('Missing short_ids array', 400, correlation_id)
+            
+            short_ids = data['short_ids']
+            
+            # Ограничиваем количество файлов в одном запросе
+            if len(short_ids) > 50:
+                return error_response('Too many files requested (max 50)', 400, correlation_id)
+            
+            previews = {}
+            
+            for short_id in short_ids:
+                try:
+                    file_data = get_file_by_short_id(short_id)
+                    if not file_data:
+                        previews[short_id] = {'has_preview': False}
+                        continue
+                    
+                    # ПРОВЕРКА ПРАВ ДОСТУПА
+                    if file_data.get('owner_id') != user_id:
+                        logger.debug(f"[BATCH PREVIEW] Access denied for file {short_id}")
+                        previews[short_id] = {'has_preview': False}
+                        continue
+                    
+                    # БЕЗОПАСНОЕ получение пути к файлу
+                    try:
+                        filepath = safe_join_paths(UPLOAD_FOLDER, file_data['unique_name'])
+                    except ValueError as e:
+                        logger.warning(f"[BATCH PREVIEW] Path traversal blocked: {e}")
+                        previews[short_id] = {'has_preview': False}
+                        continue
+                    
+                    if not os.path.exists(filepath):
+                        previews[short_id] = {'has_preview': False}
+                        continue
+                    
+                    ext = os.path.splitext(file_data['original_filename'])[1].lower()
+                    previews[short_id] = get_preview_data(filepath, ext)
+                    
+                except Exception as e:
+                    logger.warning(f"[BATCH PREVIEW] Failed to generate preview for {short_id}: {e}")
+                    previews[short_id] = {'has_preview': False}
+            
+            response = jsonify(previews)
+            response.headers['Cache-Control'] = 'public, max-age=86400'
+            return response
+            
+        except Exception as e:
+            import traceback
+            logger.error(f"[BATCH PREVIEW] Error: {str(e)} | Traceback: {traceback.format_exc()} | CorrelationID: {correlation_id}")
+            return error_response('Failed to generate batch previews', 500, correlation_id)
+
+    # --- СПИСОК ФАЙЛОВ ---
+# ... existing code ...
+
+    # --- СПИСОК ФАЙЛОВ ---
+# ... existing code ...
 
     # --- СПИСОК ФАЙЛОВ ---
     @app.route('/api/files', methods=['GET'])

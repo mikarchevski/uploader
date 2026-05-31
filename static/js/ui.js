@@ -275,6 +275,7 @@ export function renderFilesGrid(filesListContainer, files) {
             fragment.appendChild(folderCard);
         });
 
+        
         directFiles.forEach(file => {
             const card = document.createElement('div');
             card.className = 'file-card';
@@ -295,7 +296,6 @@ export function renderFilesGrid(filesListContainer, files) {
                 </div>
             `;
             fragment.appendChild(card);
-            loadPreviewForCard(card, file.short_id);
             
             // Добавляем обработчик двойного клика
             attachDoubleClick(card, file);
@@ -356,7 +356,6 @@ export function renderFilesGrid(filesListContainer, files) {
                 </div>
             `;
             fragment.appendChild(card);
-            loadPreviewForCard(card, file.short_id);
             
             // Добавляем обработчик двойного клика
             attachDoubleClick(card, file);
@@ -365,6 +364,9 @@ export function renderFilesGrid(filesListContainer, files) {
 
     filesListContainer.innerHTML = ''; 
     filesListContainer.appendChild(fragment);
+    
+    // ПАКЕТНАЯ загрузка превью после рендеринга ВСЕХ карточек
+    loadPreviewsBatch(files);
 }
 
 // ... existing code ...
@@ -373,28 +375,95 @@ export function renderFilesGrid(filesListContainer, files) {
 
 // ... existing code ...
 
-async function loadPreviewForCard(card, shortId) {
-    const cachedPreview = getCachedPreview(shortId);
-    if (cachedPreview) {
-        applyPreviewToCard(card, cachedPreview);
+async function loadPreviewsBatch(files) {
+    if (!files || files.length === 0) return;
+    
+    // Собираем все short_id файлов (исключаем папки)
+    const shortIds = files
+        .filter(f => !f.folder_path || f.folder_path.trim() === '' || f.short_id)
+        .map(f => f.short_id)
+        .filter(id => id); // убираем undefined
+    
+    if (shortIds.length === 0) return;
+    
+    const cardsMap = new Map();
+    
+    // Создаем маппинг short_id -> DOM элемент карточки
+    shortIds.forEach(shortId => {
+        const card = document.querySelector(`[data-short-id="${shortId}"]`);
+        if (card) {
+            cardsMap.set(shortId, card);
+        }
+    });
+    
+    // Проверяем кэш и разделяем файлы на закэшированные и требующие загрузки
+    const uncachedIds = [];
+    
+    shortIds.forEach(shortId => {
+        const cachedPreview = getCachedPreview(shortId);
+        const card = cardsMap.get(shortId);
+        
+        if (cachedPreview && card) {
+            applyPreviewToCard(card, cachedPreview);
+        } else if (card) {
+            uncachedIds.push(shortId);
+        }
+    });
+    
+    // Если все файлы в кэше, выходим
+    if (uncachedIds.length === 0) {
+        clientLogger.debug(`All ${shortIds.length} previews served from cache`);
         return;
     }
     
     try {
-        const res = await fetch(`/api/preview/${shortId}`);
-        if (!res.ok) {
-            clientLogger.warn(`Preview fetch failed for ${shortId}: status ${res.status}`);
+        // Отправляем ОДИН запрос для всех некэшированных превью
+        const response = await fetch('/api/previews/batch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ short_ids: uncachedIds })
+        });
+        
+        if (!response.ok) {
+            clientLogger.warn(`Batch preview fetch failed: status ${response.status}, falling back to individual requests`);
+            // Fallback: загружаем превью по одному для тех, что не удалось
+            uncachedIds.forEach(shortId => {
+                const card = cardsMap.get(shortId);
+                if (card) {
+                    loadPreviewForCard(card, shortId);
+                }
+            });
             return;
         }
         
-        const data = await res.json();
+        const previews = await response.json();
         
-        if (data.has_preview && data.preview) {
-            savePreviewToCache(shortId, data.preview);
-            applyPreviewToCard(card, data.preview);
-        }
+        // Применяем полученные превью к карточкам
+        let loadedCount = 0;
+        Object.entries(previews).forEach(([shortId, previewData]) => {
+            if (previewData.has_preview && previewData.preview) {
+                savePreviewToCache(shortId, previewData.preview);
+                const card = cardsMap.get(shortId);
+                if (card) {
+                    applyPreviewToCard(card, previewData.preview);
+                    loadedCount++;
+                }
+            }
+        });
+        
+        clientLogger.info(`Loaded ${loadedCount} previews in batch (${uncachedIds.length - loadedCount} without preview)`);
+        
     } catch (e) {
-        clientLogger.error('Ошибка загрузки превью', e.message);
+        clientLogger.error('Ошибка пакетной загрузки превью, fallback к индивидуальным запросам', e.message);
+        // Fallback при ошибке сети
+        uncachedIds.forEach(shortId => {
+            const card = cardsMap.get(shortId);
+            if (card) {
+                loadPreviewForCard(card, shortId);
+            }
+        });
     }
 }
 
