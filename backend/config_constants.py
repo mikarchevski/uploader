@@ -18,6 +18,7 @@ HASH_LENGTH = 64  # SHA-256 hash length in characters
 PREVIEW_IMAGE_SIZE = 300  # pixels (max dimension)
 PREVIEW_JPEG_QUALITY = 60  # 0-100, higher = better quality
 PREVIEW_CACHE_MAX_AGE = 86400  # seconds (24 hours)
+FFMPEG_TIMEOUT = 30  # seconds
 
 # === RATE LIMITING ===
 RATE_LIMIT_LOGIN = "10 per minute"

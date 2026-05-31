@@ -7,7 +7,7 @@ import hashlib
 import time
 from PIL import Image
 from .config import UPLOAD_FOLDER, PREVIEW_CACHE_FOLDER
-from .config_constants import PREVIEW_IMAGE_SIZE, PREVIEW_JPEG_QUALITY
+from .config_constants import PREVIEW_IMAGE_SIZE, PREVIEW_JPEG_QUALITY, FFMPEG_TIMEOUT
 
 logger = logging.getLogger(__name__)
 client_logger = logging.getLogger('client_frontend')
@@ -122,7 +122,7 @@ def get_video_preview(filepath, ext):
             temp_img
         ]
         
-        result = subprocess.run(cmd, capture_output=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, timeout=FFMPEG_TIMEOUT)
         
         if result.returncode != 0 or not os.path.exists(temp_img):
             logger.warning(f"[PREVIEW] FFmpeg failed for {filepath}: {result.stderr.decode()[:200]}")

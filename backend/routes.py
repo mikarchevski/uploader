@@ -1,7 +1,11 @@
 from flask import request, jsonify, render_template, session, redirect, url_for
 from functools import wraps
 from .auth import register_auth_routes
+from .uploads import register_upload_routes
+from .downloads import register_download_routes
+from .previews import register_preview_routes
 from .files import register_file_routes
+
 
 def register_routes(app):
     # Декоратор для защиты маршрутов
@@ -20,10 +24,19 @@ def register_routes(app):
     # 1. Авторизация
     register_auth_routes(app)
     
-    # 2. Файлы
+    # 2. Загрузка файлов (из нового модуля)
+    register_upload_routes(app)
+    
+    # 3. Скачивание файлов (из нового модуля)
+    register_download_routes(app)
+    
+    # 4. Превью (из нового модуля)
+    register_preview_routes(app)
+    
+    # 5. Остальные роуты из files.py (список файлов, удаление)
     register_file_routes(app)
 
-    # 3. Главная страница (требует авторизации)
+    # 6. Главная страница (требует авторизации)
     @app.route('/')
     @login_required
     def index():
