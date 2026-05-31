@@ -376,8 +376,10 @@ export class UploadManager {
                                 
                                 if (res.message === 'Файл уже загружен' || res.message === 'File already exists') {
                                     uiItem.setStatus('Файл уже загружен');
+                                    clientLogger.info(`File already exists: ${file.name}`);
                                 } else {
                                     uiItem.setSuccess();
+                                    clientLogger.info(`File uploaded successfully: ${file.name} (${res.file_data?.short_id})`);
                                 }
                                 
                                 const bar = uiItem.element.querySelector('.progress-bar');
@@ -394,6 +396,7 @@ export class UploadManager {
                                 resolve();
                             } else {
                                 console.error('[UPLOAD] Upload failed:', res);
+                                clientLogger.error(`Upload failed for ${file.name}: ${res.error || 'Unknown error'}`);
                                 
                                 // Проверяем, не ошибка ли это rate limiting (429)
                                 if (res.error && (res.error.includes('429') || res.error.includes('Too Many'))) {
@@ -406,6 +409,7 @@ export class UploadManager {
                                     }, 3000);
                                     
                                     resolve();
+                                    clientLogger.error(`Upload failed for ${file.name}: ${res.error || 'Rate limiting'}`);
                                     return;
                                 }
                                 
@@ -425,6 +429,7 @@ export class UploadManager {
                     reject(new Error('Cancelled'));
                 } else {
                     console.error('[UPLOAD] CRITICAL Exception in startUpload:', err);
+                    clientLogger.error(`Upload failed for ${file.name}: ${res.error || 'ICAL Exception in startUpload'}`);
                     if (uiItem) uiItem.setError('Ошибка обработки');
                     if (queueItem.parentUi) queueItem.parentUi.setError('Ошибка обработки');
                     reject(err);

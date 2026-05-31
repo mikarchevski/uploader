@@ -208,14 +208,6 @@ export function attachDoubleClick(card, file) {
 // --- КОНЕЦ LIGHTBOX ---
 
 
-// --- КОНЕЦ LIGHTBOX ---
-
-// ... existing code ...
-
-// ... existing code ...
-
-// ... existing code ...
-
 export function renderFilesGrid(filesListContainer, files) {
     const currentFolder = window.folderNav ? window.folderNav.getCurrentFolder() : null;
 
@@ -369,11 +361,32 @@ export function renderFilesGrid(filesListContainer, files) {
     loadPreviewsBatch(files);
 }
 
-// ... existing code ...
+async function loadPreviewForCard(card, shortId) {
+    const cachedPreview = getCachedPreview(shortId);
+    if (cachedPreview) {
+        applyPreviewToCard(card, cachedPreview);
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/preview/${shortId}`);
+        if (!res.ok) {
+            clientLogger.warn(`Preview fetch failed for ${shortId}: status ${res.status}`);
+            return;
+        }
+        
+        const data = await res.json();
+        
+        if (data.has_preview && data.preview) {
+            savePreviewToCache(shortId, data.preview);
+            applyPreviewToCard(card, data.preview);
+        }
+    } catch (e) {
+        clientLogger.error('Ошибка загрузки превью', e.message);
+    }
+}
 
-// ... existing code ...
-
-// ... existing code ...
+export { loadPreviewForCard };
 
 async function loadPreviewsBatch(files) {
     if (!files || files.length === 0) return;
