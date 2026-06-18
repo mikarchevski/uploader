@@ -34,6 +34,7 @@ export class UploadManager {
         }
     }
 
+    // ... existing code ...
     clearAndHide() {
         // Отменяем все активные загрузки
         this.queue.forEach(item => {
@@ -48,7 +49,6 @@ export class UploadManager {
         this.hide();
     }
 
-    // ... existing code ...
     addToQueue(filesArray) {
         if (!filesArray || filesArray.length === 0) return;
         
@@ -74,105 +74,136 @@ export class UploadManager {
             this.processQueue();
         }
     }
-
-// ... existing code ...
-    // ... existing code ...
     addFolderToQueue(filesArray) {
-        // 1. Группируем файлы по КОРНЕВОЙ папке (первая часть пути)
-        const foldersMap = new Map();
-
+        // 1. Находим корневую папку (наименьший общий префикс всех путей)
+        const rootPath = this.findRootPath(filesArray);
+        
+        // 2. Группируем все файлы по их полному пути (включая вложенные папки)
+        const allFilesMap = new Map();
+        
         filesArray.forEach(file => {
             if (!file.webkitRelativePath) return;
-
-            // Путь выглядит как "MyFolder/Sub/file.txt"
-            // split('/')[0] вернет "MyFolder"
-            const rootFolderName = file.webkitRelativePath.split('/')[0];
             
-            if (!foldersMap.has(rootFolderName)) {
-                foldersMap.set(rootFolderName, []);
-            }
-            foldersMap.get(rootFolderName).push(file);
+            // Используем полный путь файла как ключ
+            const filePath = file.webkitRelativePath;
+            allFilesMap.set(filePath, file);
         });
 
-        // 2. Создаем UI элементы для каждой корневой папки
-        foldersMap.forEach((filesInFolder, folderName) => {
-            const totalFiles = filesInFolder.length;
-            
-            const itemEl = document.createElement('div');
-            itemEl.className = 'upload-item folder-upload-item';
-            
-            itemEl.innerHTML = `
-                <div class="item-header">
-                    <span class="item-name" title="${folderName}">📁 ${folderName} (${totalFiles} файлов)</span>
-                    <button class="cancel-btn" title="Отменить загрузку">×</button>
-                </div>
-                <div class="item-status">Подготовка...</div>
-                <div class="progress-bg">
-                    <div class="progress-bar"></div>
-                </div>
-                <div class="folder-details" style="font-size: 0.8rem; color: var(--muted); margin-top: 5px;">
-                   
+        // 3. Создаем UI элемент только для корневой папки
+        const totalFiles = allFilesMap.size;
+        const rootName = rootPath.split('/').pop() || 'Root';
+        
+        const itemEl = document.createElement('div');
+        itemEl.className = 'upload-item folder-upload-item';
+        
+        itemEl.innerHTML = `
+            <div class="item-header">
+                <span class="item-name" title="${rootPath}">📁 ${rootName} (${totalFiles} файлов)</span>
+                <button class="cancel-btn" title="Отменить загрузку">×</button>
+            </div>
+            <div class="item-status">Подготовка...</div>
+            <div class="progress-bg">
+                <div class="progress-bar"></div>
+            </div>
+            <div class="folder-details" style="font-size: 0.8rem; color: var(--muted); margin-top: 5px;">
+                Путь: ${rootPath}
+            </div>
+        `;
+        
+        this.uploadList.insertBefore(itemEl, this.uploadList.firstChild);
 
+        const cancelBtn = itemEl.querySelector('.cancel-btn');
+        const statusEl = itemEl.querySelector('.item-status');
+        const barEl = itemEl.querySelector('.progress-bar');
+        const detailsEl = itemEl.querySelector('.folder-details');
 
-                </div>
-            `;
-            
-            this.uploadList.insertBefore(itemEl, this.uploadList.firstChild);
+        let completedCount = 0;
+        let isCancelled = false;
 
-            const cancelBtn = itemEl.querySelector('.cancel-btn');
-            const statusEl = itemEl.querySelector('.item-status');
-            const barEl = itemEl.querySelector('.progress-bar');
-            const detailsEl = itemEl.querySelector('.folder-details');
+        cancelBtn.onclick = () => {
+            isCancelled = true;
+            itemEl.classList.add('cancelled');
+            statusEl.textContent = '⛔ Отмена...';
+        };
 
-            let completedCount = 0;
-            let isCancelled = false;
-
-            cancelBtn.onclick = () => {
-                isCancelled = true;
-                itemEl.classList.add('cancelled');
-                statusEl.textContent = '⛔ Отмена...';
-            };
-
-            this.show();
-
-            // 3. Добавляем файлы в очередь с ссылкой на родительский UI
-            filesInFolder.forEach(file => {
-                this.queue.push({ 
-                    file, 
-                    isPartOfFolder: true,
-                    parentUi: {
-                        element: itemEl,
-                        updateProgress: () => {
-                            if (isCancelled) return;
-                            completedCount++;
-                            const percent = (completedCount / totalFiles) * 100;
-                            barEl.style.width = percent + '%';
-                            // detailsEl.textContent = `Загружено: ${completedCount} / ${totalFiles}`;
-                            
-                            if (completedCount === totalFiles) {
-                                statusEl.textContent = '✅ Папка загружена';
-                                itemEl.classList.add('success');
-                                cancelBtn.style.display = 'none';
-                                setTimeout(() => itemEl.remove(), 3000);
-                            }
-                        },
-                        setError: (msg) => {
-                            statusEl.textContent = '❌ Ошибка: ' + msg;
-                            itemEl.classList.add('error');
+        // 4. Добавляем все файлы в очередь с ссылкой на родительский UI
+        allFilesMap.forEach((file, filePath) => {
+            this.queue.push({ 
+                file, 
+                isPartOfFolder: true,
+                parentUi: {
+                    element: itemEl,
+                    updateProgress: () => {
+                        if (isCancelled) return;
+                        completedCount++;
+                        const percent = (completedCount / totalFiles) * 100;
+                        barEl.style.width = percent + '%';
+                        
+                        if (completedCount === totalFiles) {
+                            statusEl.textContent = '✅ Папка загружена';
+                            itemEl.classList.add('success');
+                            cancelBtn.style.display = 'none';
+                            setTimeout(() => itemEl.remove(), 3000);
                         }
                     },
-                    cancelled: false 
-                });
+                    setError: (msg) => {
+                        statusEl.textContent = '❌ Ошибка: ' + msg;
+                        itemEl.classList.add('error');
+                    }
+                },
+                cancelled: false 
             });
         });
+
+        this.show();
 
         if (!this.isUploading) {
             this.processQueue();
         }
     }
-// ... existing code ...
-// ... existing code ...
 
+    // Новый метод для нахождения корневого пути
+    findRootPath(filesArray) {
+        if (!filesArray || filesArray.length === 0) return '';
+        
+        // Получаем первый путь
+        const firstPath = filesArray[0].webkitRelativePath;
+        if (!firstPath) return '';
+        
+        // Разбиваем на части
+        const parts = firstPath.split('/');
+        
+        // Если есть только один файл, возвращаем его путь
+        if (filesArray.length === 1) return firstPath;
+        
+        // Находим общий префикс для всех путей
+        let commonPrefix = '';
+        
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const prefix = parts.slice(0, i + 1).join('/');
+            
+            // Проверяем, есть ли этот префикс у всех других файлов
+            let hasCommonPrefix = true;
+            for (let j = 1; j < filesArray.length; j++) {
+                const otherPath = filesArray[j].webkitRelativePath;
+                if (!otherPath.startsWith(prefix)) {
+                    hasCommonPrefix = false;
+                    break;
+                }
+            }
+            
+            if (hasCommonPrefix) {
+                commonPrefix = prefix;
+            } else {
+                break;
+            }
+        }
+        
+        return commonPrefix;
+    }
+
+// ... existing code ...
 
     createUploadItem(file, referenceNode = null) {
         const itemEl = document.createElement('div');
@@ -280,6 +311,16 @@ export class UploadManager {
 
     // ... existing code ...
 
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
+    // ... existing code ...
+
     async startUpload(queueItem) {
         return new Promise((resolve, reject) => {
             const file = queueItem.file;
@@ -364,7 +405,15 @@ export class UploadManager {
 
                 uploadFile(file, hash, 
                     (pct) => { 
-                        if (uiItem) uiItem.setProgress(50 + (pct / 2));
+                        // Обновляем прогресс для родительского UI (если есть)
+                        if (queueItem.parentUi) {
+                            queueItem.parentUi.updateProgress();
+                        }
+                        
+                        // Обновляем прогресс для отдельного файла (если есть)
+                        if (uiItem) {
+                            uiItem.setProgress(50 + (pct / 2));
+                        }
                     },
                     (res) => {
                         if (queueItem.cancelled) { 
@@ -374,32 +423,34 @@ export class UploadManager {
 
                          if (res && res.success) {                                
                                 if (res.message === 'Файл уже загружен' || res.message === 'File already exists') {
-                                    uiItem.setStatus('Файл уже загружен');
+                                    if (uiItem) uiItem.setStatus('Файл уже загружен');
                                     clientLogger.info(`File already exists: ${file.name}`);
                                 } else {
-                                    uiItem.setSuccess();
+                                    if (uiItem) uiItem.setSuccess();
                                     clientLogger.info(`File uploaded successfully: ${file.name} (${res.file_data?.short_id})`);
                                 }
                                 
-                                const bar = uiItem.element.querySelector('.progress-bar');
-                                if (bar) {
-                                    bar.style.width = '100%';
-                                    bar.style.backgroundColor = '#10b981';
+                                if (uiItem) {
+                                    const bar = uiItem.element.querySelector('.progress-bar');
+                                    if (bar) {
+                                        bar.style.width = '100%';
+                                        bar.style.backgroundColor = '#10b981';
+                                    }
+                                    uiItem.element.classList.add('success');
                                 }
-                                uiItem.element.classList.add('success');
 
                                 if (this.onUploadComplete && res.file_data && res.message !== 'Файл уже загружен' && res.message !== 'File already exists') {
                                     this.onUploadComplete(res.file_data);
                                 }
                                 
                                 resolve();
-                            } else {
+                                                        } else {
                                 console.error('[UPLOAD] Upload failed:', res);
                                 clientLogger.error(`Upload failed for ${file.name}: ${res.error || 'Unknown error'}`);
                                 
                                 // Проверяем, не ошибка ли это rate limiting (429)
                                 if (res.error && (res.error.includes('429') || res.error.includes('Too Many'))) {
-                                    uiItem.setStatus('⏳ Превышен лимит, повтор...');
+                                    if (uiItem) uiItem.setStatus('⏳ Превышен лимит, повтор...');
                                     
                                     // Ждем 3 секунды и повторяем
                                     setTimeout(() => {
@@ -412,7 +463,7 @@ export class UploadManager {
                                     return;
                                 }
                                 
-                                uiItem.setError(res?.error || 'Ошибка сервера');
+                                if (uiItem) uiItem.setError(res?.error || 'Ошибка сервера');
                                 reject(new Error(res?.error));
                             }
                     },
@@ -427,6 +478,8 @@ export class UploadManager {
                 if (err.message === 'Cancelled' || err.name === 'AbortError') {
                     reject(new Error('Cancelled'));
                 } else {
+                    console.error('[UPLOAD] CRITICAL Exception in startUpload:', err);
+                    clientLogger.error(`Upload failed for ${file.name}: ${err.message || 'CRITICAL Exception in startUpload'}`);
                     console.error('[UPLOAD] CRITICAL Exception in startUpload:', err);
                     clientLogger.error(`Upload failed for ${file.name}: ${res.error || 'ICAL Exception in startUpload'}`);
                     if (uiItem) uiItem.setError('Ошибка обработки');

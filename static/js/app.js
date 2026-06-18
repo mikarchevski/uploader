@@ -102,6 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Helper Functions ---
 
 
+    // ... existing code ...
+    // ... existing code ...
+    // ... existing code ...
     function refreshGridFromState() {
     const sortConfig = sortManager.getSortConfig();
     const sortedFiles = sortFiles(allFiles, sortConfig.field, sortConfig.order);
@@ -116,20 +119,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const fp = f.folder_path || '';
             return fp === currentFolderPath || fp.startsWith(currentFolderPath + '/');
         });
+        
+        clientLogger.info(`[REFRESH] In folder '${currentFolderPath}': ${filesToShow.length} files`);
+        filesToShow.forEach(f => {
+            clientLogger.info(`  - ${f.filename} (path: "${f.folder_path}")`);
+        });
     } else {
-        // Корневая директория: показываем файлы без папки и папки первого уровня
+        // Корневая директория: показываем файлы без папки и все уникальные папки первого уровня
+        clientLogger.info(`[REFRESH] Root directory - Total files in memory: ${sortedFiles.length}`);
+        
+        // Логируем все уникальные пути
+        const uniquePaths = [...new Set(sortedFiles.map(f => f.folder_path || '(root)'))];
+        clientLogger.info(`[REFRESH] Unique folder paths:`, uniquePaths);
+        
         filesToShow = sortedFiles.filter(f => {
             const fp = f.folder_path || '';
             const hasNoFolder = !fp || fp === '';
-            const isFirstLevel = fp && !fp.includes('/');
             
-            return hasNoFolder || isFirstLevel;
+            // Для папок: берём только те, где первый сегмент пути совпадает с самим путём
+            // (т.е. это корневые папки, а не подпапки)
+            const isFirstLevelFolder = fp && fp.split('/')[0] === fp;
+            
+            const shouldShow = hasNoFolder || isFirstLevelFolder;
+            
+            if (!shouldShow) {
+                clientLogger.info(`  [FILTERED OUT] ${f.filename} (path: "${fp}") - is subfolder`);
+            }
+            
+            return shouldShow;
+        });
+        
+        clientLogger.info(`[REFRESH] After filter: ${filesToShow.length} items to show`);
+        filesToShow.forEach(f => {
+            clientLogger.info(`  - ${f.filename} (path: "${f.folder_path}")`);
         });
     }
 
     renderFilesGrid(filesListContainer, filesToShow, folderNav);
     updateFileCount(fileCountLabel, filesToShow.length, totalFilesCount);
 }
+// ... existing code ...
+// ... existing code ...
+// ... existing code ...
 
 
     function handleFileUploaded(newFileData) {

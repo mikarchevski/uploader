@@ -307,15 +307,24 @@ export function initFileManager(filesListContainer, fileCountLabel, folderNav = 
     }
 
     // --- Удаление ПАПКИ ---
+        // --- Удаление ПАПКИ ---
     async function performFolderDelete(folderPath) {
         try {
+            console.log(`[DEBUG] Attempting to delete folder: "${folderPath}"`);
+            console.log(`[DEBUG] Folder path type: ${typeof folderPath}`);
+            console.log(`[DEBUG] Folder path length: ${folderPath ? folderPath.length : 0}`);
+            
             const res = await fetch('/api/delete/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ folder_path: folderPath })
             });
             
+            console.log(`[DEBUG] Response status: ${res.status}`);
+            
             const data = await res.json();
+            console.log(`[DEBUG] Response data:`, data);
+            
             if (data.success) {
                 const folderCard = document.querySelector(`.file-card[data-folder-path="${folderPath}"]`);
                 if (folderCard) {
@@ -334,7 +343,7 @@ export function initFileManager(filesListContainer, fileCountLabel, folderNav = 
                 showToast(data.error || 'Ошибка при удалении папки', true);
             }
         } catch (err) {
-            console.error("Delete folder error:", err);
+            console.error("[DEBUG] Delete folder error:", err);
             showToast('Ошибка сети при удалении', true);
         }
     }

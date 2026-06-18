@@ -47,18 +47,30 @@ export function uploadFile(file, hash, onProgress, onSuccess, onError, onXhrRead
         }
     };
 
-    xhr.onload = () => {
+        xhr.onload = () => {
         if (xhr.status === 200) {
             try {
-                const response = JSON.parse(xhr.responseText);
+                console.log('[API] Raw response length:', xhr.responseText.length);
+                console.log('[API] Raw response bytes:', Array.from(xhr.responseText.substring(0, 100)).map(c => c.charCodeAt(0)));
+                console.log('[API] Raw response:', xhr.responseText.substring(0, 500));
+                
+                const trimmed = xhr.responseText.trim();
+                console.log('[API] Trimmed response:', trimmed.substring(0, 500));
+                
+                const response = JSON.parse(trimmed);
                 onSuccess(response);
             } catch (e) {
+                console.error('[API] Parse error:', e.message);
+                console.error('[API] Failed to parse JSON. Response:', xhr.responseText.substring(0, 1000));
                 onError(new Error('Invalid JSON response'));
             }
         } else {
+            console.error('[API] Server error:', xhr.status, xhr.responseText.substring(0, 500));
             onError(new Error(`Server error: ${xhr.status}`));
         }
     };
+// ... existing code ...
+// ... existing code ...
 
     xhr.onerror = () => onError(new Error('Network error'));
     
@@ -73,7 +85,7 @@ export function uploadFile(file, hash, onProgress, onSuccess, onError, onXhrRead
 export async function checkFileExists(hash, folderPath = '') {
     try {
         // Добавляем folder_path в запрос проверки
-        const url = `/check?h=${hash}&folder_path=${encodeURIComponent(folderPath)}`;
+        const url = `/check?hash=${hash}&folder_path=${encodeURIComponent(folderPath)}`;
         const res = await fetch(url);
         return await res.json();
     } catch (err) {

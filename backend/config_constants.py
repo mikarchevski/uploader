@@ -72,7 +72,7 @@ SORT_ORDER_MAPPING = {
 }
 
 # === ВАЛИДАЦИЯ ПУТЕЙ ===
-FOLDER_PATH_REGEX = r'^[a-zA-Z0-9_\-/\.]+$'
+FOLDER_PATH_REGEX = r'^[a-zA-Z0-9а-яА-ЯёЁ_\-\s/\.\+\(\)\[\]@#$%^&!~]+$'
 MAX_FOLDER_DEPTH = 10
 MAX_FILENAME_LENGTH = 255
 

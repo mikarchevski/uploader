@@ -11,7 +11,7 @@ from .database import (
     delete_file_by_short_id,
     get_files_paginated
 )
-from .utils import format_file_size, safe_join_paths
+from .utils import format_file_size, safe_join_paths, validate_folder_path
 
 
 def register_file_routes(app):
@@ -63,6 +63,16 @@ def register_file_routes(app):
             sort_order = request.args.get('order', 'DESC')
             folder_path = request.args.get('folder', None)
             
+            # ВАЛИДАЦИЯ folder_path
+            if folder_path:
+                # ЛОГИРОВАНИЕ для отладки
+                
+                try:
+                    folder_path = validate_folder_path(folder_path)
+                except ValueError as e:
+                    logger.warning(f"[LIST FILES] Invalid folder path: {e} | CorrelationID: {correlation_id}")
+                    return error_response('Invalid folder path', 400, correlation_id)
+            
             logger.debug(f"[API] Listing files: page={page}, per_page={per_page} | CorrelationID: {correlation_id}")
             
             files, total_count = get_files_paginated(
@@ -100,7 +110,6 @@ def register_file_routes(app):
             import traceback
             logger.error(f"[API] Error listing files: {str(e)} | Traceback: {traceback.format_exc()} | CorrelationID: {correlation_id}")
             return error_response('Failed to list files', 500, correlation_id)
-
     # --- УДАЛЕНИЕ ОДНОГО ФАЙЛА ---
     @app.route('/api/delete/<short_id>', methods=['DELETE'])
     @rate_limit("20 per minute")
@@ -156,45 +165,105 @@ def register_file_routes(app):
                 return error_response('Требуется авторизация', 401, correlation_id)
             
             data = request.get_json()
-            if not data or 'short_ids' not in data:
-                return error_response('Missing short_ids array', 400, correlation_id)
+            if not data:
+                return error_response('Missing request body', 400, correlation_id)
             
-            short_ids = data['short_ids']
-            
-            if len(short_ids) > 100:
-                return error_response('Too many files (max 100)', 400, correlation_id)
+            # Поддержка двух форматов: по short_ids или по folder_path
+            short_ids = data.get('short_ids')
+            folder_path = data.get('folder_path')
             
             deleted_count = 0
             errors = []
             
-            for short_id in short_ids:
+            # Удаление по folder_path (папка и все подпапки)
+            if folder_path:
+                # ВАЛИДАЦИЯ folder_path
+                logger.info(f"[BULK DELETE] Received folder_path: '{folder_path}' | Type: {type(folder_path)}")
                 try:
-                    file_data = get_file_by_short_id(short_id)
-                    
-                    if not file_data:
-                        errors.append({'short_id': short_id, 'error': 'Not found'})
-                        continue
-                    
-                    if file_data.get('owner_id') != user_id:
-                        errors.append({'short_id': short_id, 'error': 'Access denied'})
-                        continue
-                    
+                    folder_path = validate_folder_path(folder_path)
+                except ValueError as e:
+                    logger.warning(f"[BULK DELETE] Invalid folder path: {e} | CorrelationID: {correlation_id}")
+                    return error_response('Invalid folder path', 400, correlation_id)
+                
+                from .database import get_files_in_folder
+                
+                files_in_folder = get_files_in_folder(user_id, folder_path, include_subfolders=True)
+                
+                if not files_in_folder:
+                    return jsonify({
+                        'success': True,
+                        'deleted_count': 0,
+                        'errors': [],
+                        'message': 'Папка пуста'
+                    })
+                
+                logger.info(f"[BULK DELETE] Deleting folder '{folder_path}' with {len(files_in_folder)} files | User: {user_id}")
+                
+                for file_info in files_in_folder:
                     try:
-                        filepath = safe_join_paths(UPLOAD_FOLDER, file_data['unique_name'])
-                        if os.path.exists(filepath):
-                            os.remove(filepath)
+                        short_id = file_info['short_id']
+                        unique_name = file_info['unique_name']
+                        
+                        # Удаляем файл с диска
+                        try:
+                            filepath = safe_join_paths(UPLOAD_FOLDER, unique_name)
+                            if os.path.exists(filepath):
+                                os.remove(filepath)
+                        except Exception as e:
+                            logger.error(f"[BULK DELETE] Failed to remove file {unique_name}: {e}")
+                            errors.append({'short_id': short_id, 'error': f'Failed to delete file: {str(e)}'})
+                            continue
+                        
+                        # Удаляем из БД
+                        delete_file_by_short_id(short_id)
+                        deleted_count += 1
+                        
                     except Exception as e:
-                        logger.error(f"[BULK DELETE] Failed to remove file: {e}")
-                    
-                    delete_file_by_short_id(short_id)
-                    deleted_count += 1
-                    
-                except Exception as e:
-                    logger.error(f"[BULK DELETE] Error deleting {short_id}: {e}")
-                    errors.append({'short_id': short_id, 'error': str(e)})
+                        logger.error(f"[BULK DELETE] Error deleting {file_info.get('short_id')}: {e}")
+                        errors.append({'short_id': file_info.get('short_id'), 'error': str(e)})
+                
+                logger.info(f"[BULK DELETE] Folder '{folder_path}' deleted: {deleted_count} files, {len(errors)} errors")
+                client_logger.info(f"Folder deleted: {folder_path} ({deleted_count} files)")
             
-            logger.info(f"[BULK DELETE] Deleted {deleted_count} files, {len(errors)} errors | User: {user_id}")
-            client_logger.info(f"Bulk delete: {deleted_count} files deleted, {len(errors)} errors")
+            # Удаление по short_ids
+            elif short_ids:
+                if not isinstance(short_ids, list):
+                    return error_response('short_ids must be an array', 400, correlation_id)
+                
+                if len(short_ids) > 100:
+                    return error_response('Too many files (max 100)', 400, correlation_id)
+                
+                for short_id in short_ids:
+                    try:
+                        file_data = get_file_by_short_id(short_id)
+                        
+                        if not file_data:
+                            errors.append({'short_id': short_id, 'error': 'Not found'})
+                            continue
+                        
+                        if file_data.get('owner_id') != user_id:
+                            errors.append({'short_id': short_id, 'error': 'Access denied'})
+                            continue
+                        
+                        try:
+                            filepath = safe_join_paths(UPLOAD_FOLDER, file_data['unique_name'])
+                            if os.path.exists(filepath):
+                                os.remove(filepath)
+                        except Exception as e:
+                            logger.error(f"[BULK DELETE] Failed to remove file: {e}")
+                        
+                        delete_file_by_short_id(short_id)
+                        deleted_count += 1
+                        
+                    except Exception as e:
+                        logger.error(f"[BULK DELETE] Error deleting {short_id}: {e}")
+                        errors.append({'short_id': short_id, 'error': str(e)})
+                
+                logger.info(f"[BULK DELETE] Deleted {deleted_count} files by IDs, {len(errors)} errors | User: {user_id}")
+                client_logger.info(f"Bulk delete: {deleted_count} files deleted, {len(errors)} errors")
+            
+            else:
+                return error_response('Missing short_ids or folder_path', 400, correlation_id)
             
             return jsonify({
                 'success': True,

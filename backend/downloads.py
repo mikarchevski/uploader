@@ -11,7 +11,7 @@ from datetime import datetime
 
 from .config import UPLOAD_FOLDER
 from .database import get_file_by_short_id, increment_download_count, get_files_in_folder
-from .utils import safe_join_paths
+from .utils import safe_join_paths, validate_folder_path
 
 
 def register_download_routes(app):
@@ -50,10 +50,20 @@ def register_download_routes(app):
             user_id = session.get('user_id')
             folder_path = request.args.get('path')
             
-            logger.info(f"[ZIP] Request to download folder: '{folder_path}' for user: {user_id} | CorrelationID: {correlation_id}")
+            # ВАЛИДАЦИЯ folder_path
+            if not folder_path:
+                return error_response('Missing folder path', 400, correlation_id)
+            
+            try:
+                folder_path = validate_folder_path(folder_path)
+            except ValueError as e:
+                logger.warning(f"[ZIP DOWNLOAD] Invalid folder path: {e} | CorrelationID: {correlation_id}")
+                return error_response('Invalid folder path', 400, correlation_id)
+            
+            if not user_id:
+                return error_response('Требуется авторизация', 401, correlation_id)
 
-            if not folder_path or not user_id:
-                return error_response('Missing parameters', 400, correlation_id)
+            logger.info(f"[ZIP] Request to download folder: '{folder_path}' for user: {user_id} | CorrelationID: {correlation_id}")
 
             files_in_folder = get_files_in_folder(user_id, folder_path, include_subfolders=True)
             
@@ -104,6 +114,8 @@ def register_download_routes(app):
             import traceback
             logger.error(f"[ZIP] Critical error: {str(e)} | Traceback: {traceback.format_exc()} | CorrelationID: {correlation_id}")
             return error_response('Failed to create archive', 500, correlation_id)
+
+
 
     # --- СКАЧИВАНИЕ ПО SHORT_ID ---
     @app.route('/d/<short_id>')

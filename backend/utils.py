@@ -14,7 +14,6 @@ from .config_constants import (
     DANGEROUS_PATH_PATTERNS
 )
 
-
 def generate_correlation_id():
     """
     Генерирует уникальный ID для отслеживания запроса.
@@ -40,6 +39,70 @@ def get_or_create_correlation_id():
         g.correlation_id = request.headers.get('X-Correlation-ID') or generate_correlation_id()
     
     return g.correlation_id
+
+def validate_folder_path(folder_path):
+    """
+    Валидирует путь папки на безопасность.
+    
+    Args:
+        folder_path: Путь папки для валидации
+    
+    Returns:
+        str: Нормализованный безопасный путь
+    
+    Raises:
+        ValueError: Если путь невалиден или опасен
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if not folder_path or folder_path.strip() == '':
+        return ''
+    
+    # Удаляем начальные и конечные слеши
+    folder_path = folder_path.strip('/')
+    
+    if not folder_path:
+        return ''
+    
+    logger.debug(f"[VALIDATE] Checking path: '{folder_path}'")
+    
+    # Проверка на опасные паттерны (экранируем специальные символы regex)
+    for pattern in DANGEROUS_PATH_PATTERNS:
+        # Экранируем regex special chars чтобы искать буквально
+        escaped_pattern = re.escape(pattern)
+        if re.search(escaped_pattern, folder_path, re.IGNORECASE):
+            logger.warning(f"[VALIDATE] Blocked dangerous pattern '{pattern}' in path: '{folder_path}'")
+            raise ValueError(f"Обнаружен опасный паттерн в пути: {pattern}")
+    
+    # Проверка формата через regex
+    if not re.match(FOLDER_PATH_REGEX, folder_path):
+        logger.warning(f"[VALIDATE] Path failed regex check: '{folder_path}' | Regex: {FOLDER_PATH_REGEX}")
+        raise ValueError("Путь содержит недопустимые символы")
+    
+    # Проверка глубины вложенности
+    depth = folder_path.count('/') + 1
+    if depth > MAX_FOLDER_DEPTH:
+        raise ValueError(f"Слишком глубокая вложенность (максимум {MAX_FOLDER_DEPTH})")
+    
+    # Проверка на пустые сегменты (//)
+    if '//' in folder_path:
+        raise ValueError("Путь содержит пустые сегменты")
+    
+    # Проверка каждого сегмента
+    segments = folder_path.split('/')
+    for segment in segments:
+        if not segment or segment in ('.', '..'):
+            raise ValueError("Недопустимый сегмент пути")
+        
+        if len(segment) > MAX_FILENAME_LENGTH:
+            raise ValueError(f"Слишком длинное имя папки: {segment}")
+    
+    # Нормализуем путь
+    normalized = '/'.join(segments)
+    
+    logger.debug(f"[VALIDATE] Path validated successfully: '{normalized}'")
+    return normalized
 def generate_short_id(length=6):
     """Генерирует уникальный короткий ID."""
     chars = string.ascii_letters + string.digits

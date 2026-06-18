@@ -223,6 +223,7 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
 
     const fragment = document.createDocumentFragment();
 
+    // ... existing code ...
     if (currentFolder) {
         const subfolders = {};
         const directFiles = [];
@@ -236,17 +237,25 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             else if (filePath.startsWith(currentFolder + '/')) {
                 const relativePath = filePath.substring(currentFolder.length + 1);
                 
-                const subfolderName = relativePath.split('/')[0];
-                const subfolderPath = currentFolder + '/' + subfolderName;
+                // Получаем имя следующей папки в иерархии
+                const nextFolderName = relativePath.split('/')[0];
+                const subfolderPath = currentFolder + '/' + nextFolderName;
                 
                 if (!subfolders[subfolderPath]) {
                     subfolders[subfolderPath] = {
-                        name: subfolderName,
+                        name: nextFolderName,
                         path: subfolderPath,
-                        count: 0
+                        count: 0,
+                        hasDeeperSubfolders: false
                     };
                 }
                 subfolders[subfolderPath].count++;
+                
+                // Проверяем, есть ли ещё более глубокие подпапки
+                const remainingPath = relativePath.substring(nextFolderName.length);
+                if (remainingPath.startsWith('/') && remainingPath.includes('/')) {
+                    subfolders[subfolderPath].hasDeeperSubfolders = true;
+                }
             }
         });
 
@@ -254,8 +263,12 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             const folderCard = document.createElement('div');
             folderCard.className = 'file-card folder-card';
             folderCard.setAttribute('data-folder-path', folder.path);
+            
+            // Индикатор наличия более глубоких подпапок
+            const deeperIndicator = folder.hasDeeperSubfolders ? ' 📂' : '';
+            
             folderCard.innerHTML = `
-                <div class="file-icon-placeholder">📁</div>
+                <div class="file-icon-placeholder">📁${deeperIndicator}</div>
                 <div class="file-details">
                     <div class="file-card-name">${escapeHtml(folder.name)}</div>
                     <div class="file-card-meta">
@@ -293,42 +306,84 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             attachDoubleClick(card, file);
         });
 
+    // ... existing code ...
+    // ... existing code ...
+    // ... existing code ...
     } else {
         const folders = {};
         const rootFiles = [];
 
         files.forEach(file => {
             if (file.folder_path && file.folder_path.trim() !== '') {
-                const firstLevelFolder = file.folder_path.split('/')[0];
+                // Используем полный путь как ключ для группировки
+                const folderPath = file.folder_path;
                 
-                if (!folders[firstLevelFolder]) {
-                    folders[firstLevelFolder] = {
-                        name: firstLevelFolder,
-                        path: firstLevelFolder,
-                        count: 0
+                if (!folders[folderPath]) {
+                    // Получаем имя папки (последний сегмент пути)
+                    const folderName = folderPath.split('/').pop();
+                    // Получаем родительский путь
+                    const parentPath = folderPath.includes('/') 
+                        ? folderPath.substring(0, folderPath.lastIndexOf('/')) 
+                        : '';
+                    
+                    folders[folderPath] = {
+                        name: folderName,
+                        path: folderPath,
+                        parentPath: parentPath,
+                        count: 0,
+                        hasSubfolders: false,
+                        subfolderPaths: new Set()
                     };
                 }
-                folders[firstLevelFolder].count++;
+                folders[folderPath].count++;
+                
+                // Проверяем, есть ли у этой папки подпапки
+                // (ищем другие файлы с путём, начинающимся с этого пути + '/')
             } else {
                 rootFiles.push(file);
             }
         });
 
+        // Теперь проверяем, какие папки являются подпапками других
+        Object.keys(folders).forEach(folderPath => {
+            Object.keys(folders).forEach(otherPath => {
+                if (otherPath.startsWith(folderPath + '/')) {
+                    folders[folderPath].hasSubfolders = true;
+                    folders[folderPath].subfolderPaths.add(otherPath);
+                }
+            });
+        });
+
+        // Показываем только папки первого уровня (у которых нет родителя в списке)
         Object.values(folders).forEach(folder => {
-            const folderCard = document.createElement('div');
-            folderCard.className = 'file-card folder-card';
-            folderCard.setAttribute('data-folder-path', folder.path);
-            folderCard.innerHTML = `
-                <div class="file-icon-placeholder">📁</div>
-                <div class="file-details">
-                    <div class="file-card-name">${escapeHtml(folder.name)}</div>
-                    <div class="file-card-meta">
-                        <span>${folder.count} файлов</span>
-                        <span>Папка</span>
+            // Проверяем, является ли эта папка подпапкой другой папки из списка
+            const isSubfolder = Object.keys(folders).some(otherPath => 
+                otherPath !== folder.path && folder.path.startsWith(otherPath + '/')
+            );
+            
+            // Показываем только корневые папки (не подпапки)
+            if (!isSubfolder) {
+                const folderCard = document.createElement('div');
+                folderCard.className = 'file-card folder-card';
+                folderCard.setAttribute('data-folder-path', folder.path);
+                
+                // Добавляем индикатор наличия подпапок
+                const subfolderIndicator = folder.hasSubfolders ? ' 📂' : '';
+                const subfolderCount = folder.subfolderPaths.size;
+                const subfolderText = subfolderCount > 0 ? ` (${subfolderCount} подпапок)` : '';
+                
+                folderCard.innerHTML = `
+                    <div class="file-icon-placeholder">📁${subfolderIndicator}</div>
+                    <div class="file-details">
+                        <div class="file-card-name" title="${escapeHtml(folder.name)}">${escapeHtml(folder.name)}</div>
+                        <div class="file-card-meta">
+                            <span>${folder.count} файлов${subfolderText}</span>
+                            <span>Папка</span>
+                        </div>
                     </div>
-                </div>
-            `;
-            fragment.appendChild(folderCard);
+                `;
+                fragment.appendChild(folderCard);
+            }
         });
 
         rootFiles.forEach(file => {
@@ -340,7 +395,7 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             card.innerHTML = `
                 <div class="file-icon-placeholder">${icon}</div>
                 <div class="file-details">
-                    <div class="file-card-name">${safeFilename}</div>
+                    <div class="file-card-name" title="${safeFilename}">${safeFilename}</div>
                     <div class="file-card-meta">
                         <span>${file.size}</span>
                         <span>${file.date}</span>
@@ -353,6 +408,11 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             attachDoubleClick(card, file);
         });
     }
+// ... existing code ...
+// ... existing code ...
+// ... existing code ...
+// ... existing code ...
+// ... existing code ...
 
     filesListContainer.innerHTML = ''; 
     filesListContainer.appendChild(fragment);
@@ -517,9 +577,21 @@ function applyPreviewToCard(card, previewData) {
     }
 }
 
+// ... existing code ...
+
 export async function addFileToGrid(filesListContainer, fileData) {
     if (fileData.folder_path && fileData.folder_path.trim() !== '') {
         const folderPath = fileData.folder_path;
+        
+        // Проверяем, является ли эта папка подпапкой (содержит '/')
+        const isSubfolder = folderPath.includes('/');
+        
+        // Если это подпапка, не добавляем её в корневую сетку
+        if (isSubfolder) {
+            clientLogger.info(`[ADD_FILE] Skipping subfolder display: ${folderPath}`);
+            return;
+        }
+        
         let folderCard = filesListContainer.querySelector(`.file-card[data-folder-path="${escapeHtml(folderPath)}"]`);
         
         if (!folderCard) {
