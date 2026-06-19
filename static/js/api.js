@@ -1,6 +1,7 @@
 // api.js
 
 import { computeFileHash } from './utils.js';
+import { getCsrfToken } from './csrf.js';
 
 /**
  * Загружает список всех файлов
@@ -39,6 +40,12 @@ export function uploadFile(file, hash, onProgress, onSuccess, onError, onXhrRead
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/upload', true);
+
+    // Добавляем CSRF token в заголовок
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+    }
 
     xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {

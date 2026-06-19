@@ -11,9 +11,13 @@ import { clientLogger } from './logger.js';
 import { fetchFilesPage } from './api.js';
 import { sortFiles } from './sortUtils.js';
 import { showToast } from './utils.js';
+import { initCsrfProtection } from './csrf.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     clientLogger.info('Application initialized');
+
+    // Инициализируем CSRF защиту
+    initCsrfProtection();
     
     // --- DOM Elements ---
     const fileInput = document.getElementById('fileInput');

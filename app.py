@@ -61,10 +61,40 @@ def create_app():
 
     app = backend_create_app()
     
-    # ВАЖНО: Добавляем наш хендлер в основной логгер приложения Flask
+     # ВАЖНО: Добавляем наш хендлер в основной логгер приложения Flask
     app.logger.addHandler(server_handler)
     app.logger.setLevel(logging.INFO)
 
+    # === CSRF PROTECTION ===
+    from flask_wtf.csrf import CSRFProtect
+    csrf = CSRFProtect()
+    csrf.init_app(app)
+    server_logger.info("✓ CSRF protection initialized")
+    
+    # Добавляем CSRF token в cookie после каждого запроса (для авторизованных пользователей)
+    @app.after_request
+    def set_csrf_cookie(response):
+        """Добавляет CSRF token в cookie если его нет"""
+        from flask import session, request
+        from flask_wtf.csrf import generate_csrf
+        
+        # Только для авторизованных пользователей и HTML страниц
+        if 'user_id' in session and not request.cookies.get('csrf_token'):
+            # Проверяем что это HTML запрос или главная страница
+            if request.accept_mimetypes.best == 'text/html' or request.path == '/':
+                token = generate_csrf()
+                response.set_cookie(
+                    'csrf_token',
+                    token,
+                    httponly=False,  # JavaScript должен иметь доступ
+                    samesite='Lax',
+                    secure=False,  # В production заменить на True с HTTPS
+                    path='/'
+                )
+                server_logger.debug(f"[CSRF] Token set for user {session.get('username')}")
+        
+        return response
+    
     # === MIDDLEWARE: Автоматическая установка correlation ID ===
     @app.before_request
     def set_correlation_id():
@@ -80,26 +110,6 @@ def create_app():
             f"IP: {request.remote_addr} | "
             f"CorrelationID: {corr_id}"
         )
-    
-    @app.after_request
-    def log_request_complete(response):
-        """Логирует завершение запроса с correlation ID"""
-        from flask import request
-        from backend.utils import get_or_create_correlation_id
-        
-        corr_id = get_or_create_correlation_id()
-        
-        # Добавляем correlation ID в ответ (для клиента)
-        response.headers['X-Correlation-ID'] = corr_id
-        
-        # Логируем завершение
-        server_logger.info(
-            f"[REQUEST END] {request.method} {request.path} | "
-            f"Status: {response.status_code} | "
-            f"CorrelationID: {corr_id}"
-        )
-        
-        return response
     
     CORS(app, supports_credentials=True)
     

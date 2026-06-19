@@ -1,13 +1,24 @@
 // static/js/logger.js
+import { getCsrfToken } from './csrf.js';
+
 const LOG_ENDPOINT = '/api/log';
 let logQueue = [];
 let isSending = false;
 
 async function sendLogToServer(level, message, details = '') {
     try {
+        const csrfToken = getCsrfToken();
+        const headers = { 
+            'Content-Type': 'application/json'
+        };
+        
+        if (csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+        
         await fetch(LOG_ENDPOINT, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({ level, message, details })
         });
     } catch (error) {

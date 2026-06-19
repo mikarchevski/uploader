@@ -81,6 +81,10 @@ def register_preview_routes(app):
             return error_response('Failed to generate preview', 500, correlation_id)
 
     # --- ПРЕВЬЮ КАК БИНАРНОЕ ИЗОБРАЖЕНИЕ ---
+    # ... existing code ...
+
+    # ... existing code ...
+
     @app.route('/api/preview-image/<short_id>')
     @rate_limit(RATE_LIMIT_PREVIEW)
     def get_file_preview_image(short_id):
@@ -91,14 +95,16 @@ def register_preview_routes(app):
             
             user_id = session.get('user_id')
             if not user_id:
+                logger.warning(f"[PREVIEW-IMAGE] Unauthorized request for {short_id} | CorrelationID: {correlation_id}")
                 return error_response('Требуется авторизация', 401, correlation_id)
             
             file_data = get_file_by_short_id(short_id)
             if not file_data:
+                logger.info(f"[PREVIEW-IMAGE] File not found in DB: {short_id} | User: {user_id} | CorrelationID: {correlation_id}")
                 return error_response('File not found', 404, correlation_id)
             
             if file_data.get('owner_id') != user_id:
-                logger.warning(f"[PREVIEW-IMAGE] Access denied: User {user_id} tried to access file {short_id}")
+                logger.warning(f"[PREVIEW-IMAGE] Access denied: User {user_id} tried to access file {short_id} (owner: {file_data.get('owner_id')})")
                 return error_response('Access denied', 403, correlation_id)
             
             try:
@@ -110,6 +116,7 @@ def register_preview_routes(app):
             ext = os.path.splitext(file_data['original_filename'])[1].lower()
             
             if not os.path.exists(filepath):
+                logger.warning(f"[PREVIEW-IMAGE] Physical file missing: {short_id} -> {filepath} | CorrelationID: {correlation_id}")
                 return error_response('File not found', 404, correlation_id)
             
             cache_path = get_cached_preview_path(filepath)
@@ -118,6 +125,7 @@ def register_preview_routes(app):
                 preview_result = get_preview_data(filepath, ext)
                 
                 if not preview_result.get('has_preview'):
+                    logger.info(f"[PREVIEW-IMAGE] Preview not available for {short_id} (ext: {ext}) | CorrelationID: {correlation_id}")
                     return error_response('Preview not available', 404, correlation_id)
                 
                 preview_base64 = preview_result['preview']
@@ -130,7 +138,7 @@ def register_preview_routes(app):
                 with open(cache_path, 'wb') as f:
                     f.write(image_data)
                 
-                logger.debug(f"[PREVIEW-IMAGE] Generated and cached: {short_id}")
+                logger.info(f"[PREVIEW-IMAGE] Generated and cached: {short_id}")
             
             response = send_file(
                 cache_path,

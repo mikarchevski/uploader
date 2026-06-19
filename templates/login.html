@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Подключаем специфичные стили для авторизации -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    
+    <!-- CSRF Token Meta Tag -->
+    <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
 </head>
 <body>
     <div class="auth-container">
@@ -22,6 +25,9 @@
 
         <!-- Форма всегда отправляет на /login -->
         <form method="POST" action="/login">
+            <!-- CSRF Token для формы -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/>
+            
             <!-- Скрытое поле для режима. 0 = вход, 1 = регистрация -->
             <input type="hidden" name="register" id="registerMode" value="0">
 

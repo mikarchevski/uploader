@@ -194,7 +194,7 @@ export function attachDoubleClick(card, file) {
     const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'];
     
     if (imageExts.includes(ext)) {
-        card.style.cursor = 'zoom-in';
+        card.style.cursor = 'pointer';
         card.addEventListener('dblclick', () => {
             openImageModal(file.url, file.filename);
         });
@@ -470,25 +470,56 @@ async function loadPreviewForCard(card, shortId) {
 
 export { loadPreviewForCard };
 
+// ... existing code ...
+
 async function loadPreviewsBatch(files) {
     if (!files || files.length === 0) return;
     
-    // Собираем все short_id файлов (исключаем папки)
-    const shortIds = files
-        .filter(f => !f.folder_path || f.folder_path.trim() === '' || f.short_id)
-        .map(f => f.short_id)
-        .filter(id => id); // убираем undefined
+    // Расширения файлов которые поддерживают превью
+    const supportedExtensions = new Set([
+        'jpg', 'jpeg', 'png', 'webp', 'svg', 'gif',
+        'mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'
+    ]);
     
-    if (shortIds.length === 0) return;
-    clientLogger.info(`[PREVIEW BATCH] Processing ${shortIds.length} files for preview loading`);
+    // Собираем все short_id файлов (исключаем папки и файлы без ID)
+    const shortIds = files
+        .filter(f => {
+            // Исключаем папки
+            if (f.type === 'folder' || (f.folder_path && f.folder_path.trim() !== '' && !f.short_id)) {
+                return false;
+            }
+            // Требуем наличие short_id
+            if (!f.short_id || typeof f.short_id !== 'string' || f.short_id.trim() === '') {
+                return false;
+            }
+            // Проверяем расширение файла
+            const ext = f.filename ? f.filename.split('.').pop().toLowerCase() : '';
+            if (!supportedExtensions.has(ext)) {
+                return false;
+            }
+            return true;
+        })
+        .map(f => f.short_id);
+    
+    if (shortIds.length === 0) {
+        clientLogger.debug('[PREVIEW BATCH] No valid file IDs to process');
+        return;
+    }
+    
+    // Убираем дубликаты
+    const uniqueShortIds = [...new Set(shortIds)];
+    
+    clientLogger.info(`[PREVIEW BATCH] Processing ${uniqueShortIds.length} unique files for preview loading`);
     
     const cardsMap = new Map();
     
     // Создаем маппинг short_id -> DOM элемент карточки
-    shortIds.forEach(shortId => {
+    uniqueShortIds.forEach(shortId => {
         const card = document.querySelector(`[data-short-id="${shortId}"]`);
         if (card) {
             cardsMap.set(shortId, card);
+        } else {
+            clientLogger.warn(`[PREVIEW BATCH] Card not found for short_id: ${shortId}`);
         }
     });
     
@@ -496,7 +527,7 @@ async function loadPreviewsBatch(files) {
     const uncachedIds = [];
     let cachedCount = 0;
     
-    shortIds.forEach(shortId => {
+    uniqueShortIds.forEach(shortId => {
         const cachedPreview = getCachedPreview(shortId);
         const card = cardsMap.get(shortId);
         
@@ -511,7 +542,7 @@ async function loadPreviewsBatch(files) {
     
     // Если все файлы в кэше, выходим
     if (uncachedIds.length === 0) {
-        clientLogger.info(`All ${shortIds.length} previews served from cache`);
+        clientLogger.info(`All ${uniqueShortIds.length} previews served from cache`);
         return;
     }
     
@@ -527,7 +558,10 @@ async function loadPreviewsBatch(files) {
             });
             
             if (!res.ok) {
-                clientLogger.warn(`Preview fetch failed for ${shortId}: ${res.status}`);
+                // Не логируем 404 - это нормально для файлов без превью (txt, lnk, pdf и т.д.)
+                if (res.status !== 404) {
+                    clientLogger.warn(`Preview fetch failed for ${shortId}: ${res.status}`);
+                }
                 return null;
             }
             
@@ -562,6 +596,8 @@ async function loadPreviewsBatch(files) {
     const failed = results.length - successful;
     clientLogger.info(`Loaded ${successful} previews in batch (${failed} failed)`);
 }
+
+// ... existing code ...
 
 // ... existing code ...
 

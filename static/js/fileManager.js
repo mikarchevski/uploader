@@ -1,6 +1,7 @@
 // fileManager.js
 import { copyToClipboard, showToast } from './utils.js';
 import { updateFileCount } from './ui.js';
+import { csrfFetch } from './csrf.js';
 
 export function initFileManager(filesListContainer, fileCountLabel, folderNav = null) {
     const fileActionBar = document.getElementById('fileActionBar');
@@ -281,7 +282,7 @@ export function initFileManager(filesListContainer, fileCountLabel, folderNav = 
         try {
             showToast('Подготовка архива...');
             
-            const response = await fetch(`/api/download/folder?path=${encodeURIComponent(folderPath)}`);
+            const response = await csrfFetch(`/api/download/folder?path=${encodeURIComponent(folderPath)}`);
             
             if (!response.ok) {
                 throw new Error('Failed to create archive');
@@ -314,7 +315,7 @@ export function initFileManager(filesListContainer, fileCountLabel, folderNav = 
             console.log(`[DEBUG] Folder path type: ${typeof folderPath}`);
             console.log(`[DEBUG] Folder path length: ${folderPath ? folderPath.length : 0}`);
             
-            const res = await fetch('/api/delete/bulk', {
+            const res = await csrfFetch('/api/delete/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ folder_path: folderPath })
@@ -374,7 +375,7 @@ export function initFileManager(filesListContainer, fileCountLabel, folderNav = 
         clearSelection();
 
         for (const id of idsToDelete) {
-            try { await fetch(`/api/delete/${id}`, { method: 'DELETE' }); } 
+            try { await csrfFetch(`/api/delete/${id}`, { method: 'DELETE' }); } 
             catch (err) { console.error(`Error deleting ${id}`, err); }
         }
         
