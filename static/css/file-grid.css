@@ -62,7 +62,19 @@
 
 /* Адаптивность сетки */
 @media (max-width: 768px) {
-    .files-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .files-grid { 
+        grid-template-columns: repeat(2, 1fr);
+        grid-gap: 0.75rem;
+        padding: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .files-grid { 
+        grid-template-columns: repeat(2, 1fr);
+        grid-gap: 0.5rem;
+        padding: 0.5rem;
+    }
 }
 
 /* static/css/file-grid.css */

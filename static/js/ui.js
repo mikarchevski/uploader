@@ -208,6 +208,7 @@ export function attachDoubleClick(card, file) {
 // --- КОНЕЦ LIGHTBOX ---
 
 
+
 export function renderFilesGrid(filesListContainer, files, folderNav = null) {
     const currentFolder = folderNav ? folderNav.getCurrentFolder() : null;
 
@@ -290,7 +291,13 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             const displayName = file.filename.includes('/') ? file.filename.split('/').pop() : file.filename;
             const safeFilename = escapeHtml(displayName);
             
-            card.innerHTML = `
+            // Проверяем, является ли файл видео
+            const ext = file.filename.split('.').pop().toLowerCase();
+            const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'];
+            const isVideo = videoExts.includes(ext);
+            
+            // Создаём HTML карточки с возможным бейджем
+            let cardHTML = `
                 <div class="file-icon-placeholder">${icon}</div>
                 <div class="file-details">
                     <div class="file-card-name" title="${safeFilename}">${safeFilename}</div>
@@ -300,6 +307,16 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
                     </div>
                 </div>
             `;
+            
+            // Добавляем бейдж для видео
+            if (isVideo) {
+                cardHTML = `
+                    <div class="video-badge">VIDEO</div>
+                    ${cardHTML}
+                `;
+            }
+            
+            card.innerHTML = cardHTML;
             fragment.appendChild(card);
             
             // Добавляем обработчик двойного клика
@@ -392,7 +409,14 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             card.setAttribute('data-short-id', file.short_id);
             const icon = getIconForFile(file.filename);
             const safeFilename = escapeHtml(file.filename);
-            card.innerHTML = `
+            
+            // Проверяем, является ли файл видео
+            const ext = file.filename.split('.').pop().toLowerCase();
+            const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'];
+            const isVideo = videoExts.includes(ext);
+            
+            // Создаём HTML карточки с возможным бейджем
+            let cardHTML = `
                 <div class="file-icon-placeholder">${icon}</div>
                 <div class="file-details">
                     <div class="file-card-name" title="${safeFilename}">${safeFilename}</div>
@@ -402,6 +426,16 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
                     </div>
                 </div>
             `;
+            
+            // Добавляем бейдж для видео
+            if (isVideo) {
+                cardHTML = `
+                    <div class="video-badge">VIDEO</div>
+                    ${cardHTML}
+                `;
+            }
+            
+            card.innerHTML = cardHTML;
             fragment.appendChild(card);
             
             // Добавляем обработчик двойного клика
@@ -673,7 +707,14 @@ export async function addFileToGrid(filesListContainer, fileData) {
         newCard.setAttribute('data-short-id', fileData.short_id);
         
         const safeFilename = escapeHtml(fileData.filename);
-        newCard.innerHTML = `
+        
+        // Проверяем, является ли файл видео
+        const ext = fileData.filename.split('.').pop().toLowerCase();
+        const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'];
+        const isVideo = videoExts.includes(ext);
+        
+        // Создаём HTML карточки с возможным бейджем
+        let cardHTML = `
             <div class="file-icon-placeholder">${icon}</div>
             <div class="file-details">
                 <div class="file-card-name" title="${safeFilename}">${safeFilename}</div>
@@ -683,6 +724,16 @@ export async function addFileToGrid(filesListContainer, fileData) {
                 </div>
             </div>
         `;
+        
+        // Добавляем бейдж для видео
+        if (isVideo) {
+            cardHTML = `
+                <div class="video-badge">VIDEO</div>
+                ${cardHTML}
+            `;
+        }
+        
+        newCard.innerHTML = cardHTML;
         
         const firstFolder = filesListContainer.querySelector('.folder-card');
         if (firstFolder) {

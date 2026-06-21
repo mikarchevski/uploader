@@ -12,12 +12,16 @@ import { fetchFilesPage } from './api.js';
 import { sortFiles } from './sortUtils.js';
 import { showToast } from './utils.js';
 import { initCsrfProtection } from './csrf.js';
+import { initMobileEnhancements } from './mobileEnhancements.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     clientLogger.info('Application initialized');
 
     // Инициализируем CSRF защиту
     initCsrfProtection();
+    
+    // Инициализируем мобильные улучшения
+    initMobileEnhancements();
     
     // --- DOM Elements ---
     const fileInput = document.getElementById('fileInput');
@@ -48,13 +52,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const userDropdown = document.getElementById('userDropdown');
 
     // --- State ---
+    // ... existing code ...
+
+    // --- State ---
     let allFiles = []; 
     let totalFilesCount = 0;
+    
+    // Делаем allFiles доступным для мобильного модуля
+    window.allFiles = allFiles;
     
     let currentPage = 1;
     const BATCH_SIZE = CONFIG.BATCH_SIZE;
     let hasMoreFiles = true;
     let isLoadingBatch = false;
+    
+    // Активный фильтр
+    let activeFilter = 'all';
 
     // --- Initialize Modules ---
     
@@ -105,6 +118,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helper Functions ---
 
+    // Функция фильтрации файлов по типу
+    function filterFilesByType(files, filterType) {
+        if (filterType === 'all') return files;
+        
+        const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+        const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv', 'm4v'];
+        
+        return files.filter(file => {
+            const ext = file.filename.split('.').pop().toLowerCase();
+            
+            switch(filterType) {
+                case 'image':
+                    return imageExts.includes(ext);
+                case 'video':
+                    return videoExts.includes(ext);
+                case 'new':
+                    // Показываем файлы за последние 24 часа
+                    const fileDate = new Date(file.uploaded_at || file.date);
+                    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    return fileDate >= oneDayAgo;
+                default:
+                    return true;
+            }
+        });
+    }
+
 
     // ... existing code ...
     // ... existing code ...
@@ -113,13 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const sortConfig = sortManager.getSortConfig();
     const sortedFiles = sortFiles(allFiles, sortConfig.field, sortConfig.order);
     
-    let filesToShow = sortedFiles;
+    // Применяем фильтр
+    const filteredFiles = filterFilesByType(sortedFiles, activeFilter);
+    
+    let filesToShow = filteredFiles;
     
     const currentFolderPath = folderNav.getCurrentFolder();
     
     if (currentFolderPath) {
         // Показываем все файлы, которые находятся в текущей папке или её подпапках
-        filesToShow = sortedFiles.filter(f => {
+        filesToShow = filteredFiles.filter(f => {
             const fp = f.folder_path || '';
             return fp === currentFolderPath || fp.startsWith(currentFolderPath + '/');
         });
@@ -136,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const uniquePaths = [...new Set(sortedFiles.map(f => f.folder_path || '(root)'))];
         clientLogger.info(`[REFRESH] Unique folder paths:`, uniquePaths);
         
-        filesToShow = sortedFiles.filter(f => {
+        filesToShow = filteredFiles.filter(f => {
             const fp = f.folder_path || '';
             const hasNoFolder = !fp || fp === '';
             
@@ -183,11 +225,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 // ... existing code ...
+// Синхронизация мобильных и десктопных фильтров
+function syncFilters(sourceFilter, targetButtons) {
+    const filterValue = sourceFilter.dataset.filter;
+    
+    // Обновляем целевые кнопки
+    targetButtons.forEach(btn => {
+        if (btn.dataset.filter === filterValue) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+}
 
+
+// Обработчики для десктопных фильтров
+document.querySelectorAll('.sidebar-filters .filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Убираем active у всех десктопных кнопок
+        document.querySelectorAll('.sidebar-filters .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Синхронизируем с мобильными
+        syncFilters(btn, document.querySelectorAll('.mobile-filter-btn'));
+        
+        // Устанавливаем активный фильтр и обновляем сетку
+        activeFilter = btn.dataset.filter;
+        refreshGridFromState();
+        
+        clientLogger.info(`Filter changed to: ${activeFilter}`);
+    });
+});
+
+// Обработчики для мобильных фильтров
+document.querySelectorAll('.mobile-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Убираем active у всех мобильных кнопок
+        document.querySelectorAll('.mobile-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Синхронизируем с десктопными
+        syncFilters(btn, document.querySelectorAll('.sidebar-filters .filter-btn'));
+        
+        // Устанавливаем активный фильтр и обновляем сетку
+        activeFilter = btn.dataset.filter;
+        refreshGridFromState();
+        
+        clientLogger.info(`Filter changed to: ${activeFilter}`);
+    });
+});
 // ... existing code ...
 
     // --- Init Upload Manager ---
     const uploadManager = new UploadManager(handleFileUploaded);
+
+    // --- Quick Filters Logic ---
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Убираем активный класс у всех кнопок
+            filterButtons.forEach(b => b.classList.remove('active'));
+            
+            // Добавляем активный класс нажатой кнопке
+            btn.classList.add('active');
+            
+            // Устанавливаем активный фильтр
+            activeFilter = btn.dataset.filter;
+            
+            // Обновляем отображение
+            refreshGridFromState();
+            
+            clientLogger.info(`Filter changed to: ${activeFilter}`);
+        });
+    });
 
     // --- User Menu Logic ---
     if (userMenuBtn && userDropdown) {
@@ -250,6 +362,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 allFiles = [...allFiles, ...newFiles];
+                
+                // Синхронизируем с глобальной переменной для мобильного модуля
+                window.allFiles = allFiles;
                 
                 // Обновляем общее количество файлов
                 if (response.total !== undefined) {
