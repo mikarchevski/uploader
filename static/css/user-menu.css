@@ -1,0 +1,209 @@
+/* Обертка для позиционирования в правом верхнем углу main-content */
+.user-menu-wrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+/* Круглая кнопка с иконкой */
+.user-menu-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: white;
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.user-menu-btn:hover {
+    background-color: #f8fafc;
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Выпадающее меню */
+.user-dropdown {
+    position: absolute;
+    top: 55px;
+    right: 0;
+    width: 240px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 1px solid var(--border);
+    z-index: 1000;
+    padding: 0.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+.user-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.user-dropdown.hidden {
+    display: none;
+}
+
+/* Заголовок меню (Аватар + Имя) */
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem;
+    border-bottom: 1px solid transparent;
+}
+
+.dropdown-avatar {
+    width: 36px;
+    height: 36px;
+    background-color: #eff6ff;
+    color: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dropdown-username {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Разделитель */
+.dropdown-divider {
+    height: 1px;
+    background-color: var(--border);
+    margin: 0.25rem 0.5rem;
+}
+
+/* Пункты меню */
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: background-color 0.2s, color 0.2s;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: #f1f5f9;
+}
+
+.dropdown-item.active {
+    background-color: #eff6ff;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* Специфичные стили для кнопки выхода */
+.logout-item {
+    color: #ef4444;
+}
+
+.logout-item:hover {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+/* Стили для опций сортировки */
+.sort-option {
+    display: block;
+    width: 90%;
+    text-align: left;
+    padding: 0.75rem;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    transition: background-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.sort-option:hover {
+    background-color: var(--border);
+    color: var(--text-main);
+}
+
+.sort-option.active {
+    background-color: #eff6ff;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* Меню сортировки */
+.sort-menu {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    padding: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+/* Стили для кнопки переключения темы в меню */
+.theme-toggle-item {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+/* Класс для скрытия элементов */
+.hidden {
+    display: none !important;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .user-menu-wrapper {
+        top: 15px;
+        right: 15px;
+    }
+    
+    .sort-menu, .user-dropdown {
+        right: 0;
+    }
+}

@@ -1,0 +1,151 @@
+/* === СТИЛИ ДЛЯ БЫСТРЫХ ФИЛЬТРОВ В SIDEBAR === */
+.sidebar-filters {
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    margin-top: 50px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filters-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-main);
+}
+
+.sidebar-filters .filter-btn {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-filters .filter-btn:last-child {
+    margin-bottom: 0;
+}
+
+.sidebar-filters .filter-btn:hover {
+    background: #f1f5f9;
+    border-color: var(--primary);
+    transform: translateX(2px);
+}
+
+[data-theme="dark"] .sidebar-filters .filter-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-filters .filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .sidebar-filters .filter-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .sidebar-filters {
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    
+    .sidebar-filters::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .filters-title {
+        display: none;
+    }
+    
+    .sidebar-filters .filter-btn {
+        width: auto;
+        min-width: fit-content;
+        margin-bottom: 0;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar-filters .filter-btn {
+        padding: 0.4rem 0.7rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* === МОБИЛЬНЫЕ ФИЛЬТРЫ === */
+.mobile-filters {
+    display: none; /* Скрыты по умолчанию на десктопе */
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-body);
+}
+
+.mobile-filters::-webkit-scrollbar {
+    display: none;
+}
+
+.mobile-filter-btn {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.mobile-filter-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary);
+}
+
+.mobile-filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Показываем мобильные фильтры только на экранах < 768px */
+@media (max-width: 768px) {
+    .mobile-filters {
+        display: flex;
+    }
+    
+    /* Скрываем фильтры в сайдбаре на мобильных */
+    .sidebar-filters {
+        display: none;
+    }
+}

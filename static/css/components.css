@@ -19,12 +19,30 @@ body {
     background: #fafbfc; 
     margin-bottom: 1rem;
 }
-.drop-zone:hover, .drop-zone.active { border-color: var(--primary); background: #eff6ff; }
+.drop-zone:hover, .drop-zone.active { 
+    border-color: var(--primary); 
+    background: #eff6ff; 
+}
 
-.file-info { margin: 1rem 0; padding: 0.75rem; background: #f1f5f9; border-radius: 6px; display: none; }
-.file-info.show { display: block; }
-.file-name { font-weight: 500; word-break: break-all; font-size: 0.9rem; }
-.file-size { color: var(--muted); font-size: 0.8rem; }
+.file-info { 
+    margin: 1rem 0; 
+    padding: 0.75rem; 
+    background: #f1f5f9; 
+    border-radius: 6px; 
+    display: none; 
+}
+.file-info.show { 
+    display: block; 
+}
+.file-name { 
+    font-weight: 500; 
+    word-break: break-all; 
+    font-size: 0.9rem; 
+}
+.file-size { 
+    color: var(--muted); 
+    font-size: 0.8rem; 
+}
 
 .btn { 
     width: 100%; 
@@ -35,21 +53,21 @@ body {
     border-radius: 6px; 
     font-size: 1rem; 
     cursor: pointer; 
-    transition: all 0.2s ease; /* Изменили на all для плавности всех свойств */
+    transition: all 0.2s ease;
     margin-top: 1rem; 
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Легкая тень по умолчанию */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .btn:hover { 
-    background: var(--primary); /* Меняем фон на основной цвет при наведении */
-    color: white; /* Текст становится белым */
+    background: var(--primary);
+    color: white;
     border-color: var(--primary);
-    transform: translateY(-1px); /* Легкий подъем кнопки */
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Усиливаем тень */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 .btn:active {
-    transform: translateY(0); /* Возврат при нажатии */
+    transform: translateY(0);
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
@@ -71,82 +89,14 @@ body {
 .link-input {
     flex: 1;
     padding: 0.5rem;
-    border: 1px solid var(--border); /* <-- Переменная */
+    border: 1px solid var(--border);
     border-radius: 4px;
     font-family: monospace;
     font-size: 0.75rem;
-    background-color: var(--bg-card); /* Фон инпута */
-    color: var(--text-main); /* Текст инпута */
+    background-color: var(--bg-card);
+    color: var(--text-main);
 }
 .copy-btn { padding: 0.5rem; background: var(--info); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-
-/* --- Карточка файла --- */
-.file-card {
-    display: flex;
-    align-items: center;
-    position: relative;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-     color: var(--text-main);
-    border-radius: 12px;
-    padding: 1rem;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    max-height: 190px;
-}
-
-.file-card:hover {
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    border-color: var(--primary);
-    background: var(--card-bg);
-}
-
-.file-icon {
-    display: block;
-    position: relative;
-    cursor: pointer;
-    width: 50%;
-    height: 100px;
-    font-size: 3rem; /* Обновленный размер */
-    text-align: center;
-    padding: 1rem 0;
-    color: var(--primary);
-}
-
-.file-details { 
-    margin-bottom: 1rem;
-    display: block;
-  position: relative;
-  align-content: center;
-  width: 100%;
-
-}
-.file-card-name { 
-    font-weight: 600; 
-    font-size: 1rem; 
-    margin-bottom: 0.5rem; 
-    word-break: break-word;
-    line-height: 1.3;
-    color: var(--text-main);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 250px;
-}
-.file-card-meta { 
-    font-size: 0.8rem; 
-    color: var(--text-muted);
-    display: flex; 
-    justify-content: space-between;
-}
-
-.file-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: auto;
-}
 
 .action-btn {
    flex: 1;
@@ -170,64 +120,6 @@ body {
 .btn-copy { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
 .btn-copy:hover { background: #e2e8f0; }
 
-.no-files { 
-    grid-column: 1 / -1; 
-    text-align: center; 
-    padding: 4rem; 
-    color: var(--muted); 
-    background: var(--bg-card);
-    border-radius: 12px; 
-    border: 1px dashed var(--border);
-}
-
-.file-preview-img {
-    width: 50%;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-bottom: 0.75rem;
-    background-color: #f1f5f9;
-}
-
-.file-icon-placeholder {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100px;
-    font-size: 3.5rem; /* Увеличил размер эмодзи */
-    text-align: center;
-    color: var(--primary);
-    margin-bottom: 0.75rem;
-}
-
-/* components.css - добавить в самый конец */
-
-/* --- Стили для мультиселекта (Выделение файлов) --- */
-
-/* Убедимся, что карточка имеет курсор pointer */
-.file-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative; /* Для z-index */
-}
-
-/* Стили для выбранной карточки */
-.file-card.selected {
-    border-color: var(--primary) !important;
-    background-color: #eff6ff !important; /* Светло-синий фон */
-    box-shadow: 0 0 0 2px var(--primary) !important; /* Яркая синяя обводка */
-    transform: translateY(-2px);
-    z-index: 10;
-}
-
-/* Чтобы при наведении на выбранную карточку она не теряла стиль */
-.file-card.selected:hover {
-    border-color: var(--primary) !important;
-    background-color: #dbeafe !important; /* Чуть темнее при наведении */
-    box-shadow: 0 0 0 2px var(--primary) !important;
-}
-
 /* --- Кнопка массового удаления --- */
 .btn-bulk-delete {
     padding: 0.5rem 1rem;
@@ -243,8 +135,6 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    
-    /* Z-index выше, чем у панели действий файла (1000) */
     z-index: 1100; 
     position: relative;
 }
@@ -253,10 +143,6 @@ body {
     background-color: #dc2626;
     transform: translateY(-1px);
     box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
-}
-
-.btn-bulk-delete.hidden {
-    display: none !important;
 }
 
 /* Анимация появления кнопки */
@@ -274,246 +160,7 @@ body.is-dragging,
 body.is-dragging * {
     user-select: none;
     -webkit-user-select: none;
-    cursor: default; /* Или crosshair, как вам нравится */
-}
-
-/* Убедитесь, что у карточек есть pointer-events: auto, чтобы они реагировали на клики */
-.file-card {
-    pointer-events: auto;
-    /* Остальные ваши стили... */
-}
-
-/* В файле style.css или components.css */
-.files-grid {
-    user-select: none; /* Запрещаем выделение всего внутри сетки по умолчанию */
-}
-
-.file-card-name, 
-.file-card-meta {
-    user-select: text; /* Разрешаем выделение текста внутри карточек для обычного клика */
-}
-
-/* --- User Menu Styles (Top Right Corner) --- */
-
-/* Обертка для позиционирования в правом верхнем углу main-content */
-.user-menu-wrapper {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 100; /* Поверх всего, но под модальными окнами */
-}
-
-/* Круглая кнопка с иконкой */
-.user-menu-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background-color: white;
-    border: 1px solid var(--border);
-    color: var(--text);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
-
-.user-menu-btn:hover {
-    background-color: #f8fafc;
-    border-color: var(--primary);
-    color: var(--primary);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-/* Выпадающее меню */
-.user-dropdown {
-    position: absolute;
-    top: 55px; /* Чуть ниже кнопки */
-    right: 0;
-    width: 240px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    border: 1px solid var(--border);
-    z-index: 1000;
-    padding: 0.5rem;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); /* Плавная анимация */
-    
-    /* ДОБАВИТЬ ЭТУ СТРОКУ: */
-    overflow: hidden; 
-}
-
-.user-dropdown.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.user-dropdown.hidden {
-    display: none;
-}
-
-/* Заголовок меню (Аватар + Имя) */
-.dropdown-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0.75rem;
-    border-bottom: 1px solid transparent; /* Резерв места */
-}
-
-.dropdown-avatar {
-    width: 36px;
-    height: 36px;
-    background-color: #eff6ff;
-    color: var(--primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.dropdown-username {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Разделитель */
-.dropdown-divider {
-    height: 1px;
-    background-color: var(--border);
-    margin: 0.25rem 0.5rem;
-}
-
-/* Пункты меню */
-.dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0.75rem;
-    text-decoration: none;
-    color: var(--text);
-    font-size: 0.9rem;
-    border-radius: 8px;
-    transition: background-color 0.2s, color 0.2s;
-    font-weight: 500;
-    width: 100%; /* Важно для кнопок, чтобы они занимали всю ширину */
-    text-align: left;
-    background: none; /* Сброс фона кнопки */
-    border: none;     /* Сброс границы кнопки */
-    cursor: pointer;
-}
-
-.dropdown-item:hover {
-    background-color: #f1f5f9;
-}
-
-/* Специфичные стили для кнопки выхода */
-.logout-item {
-    color: #ef4444;
-}
-
-.logout-item:hover {
-    background-color: #fef2f2;
-    color: #dc2626;
-}
-
-/* Адаптивность для мобильных: меню чуть ближе к краю */
-@media (max-width: 768px) {
-    .user-menu-wrapper {
-        top: 15px;
-        right: 15px;
-    }
-}
-
-/* Меню сортировки и пользователя */
-.sort-menu, .user-dropdown {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-main);
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    padding: 0.5rem;
-    transition: all 0.2s ease;
-}
-
-/* Стили для опций в меню */
-.sort-option, .dropdown-item {
-    display: block;
-    width: 90%;
-    text-align: left;
-    padding: 0.75rem;
-    background: none;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: var(--text-main);
-    transition: background-color 0.2s, color 0.2s;
-    white-space: nowrap;
-}
-
-.sort-option:hover, .dropdown-item:hover {
-    background-color: var(--border);
-    color: var(--text-main);
-}
-
-.sort-option.active, .dropdown-item.active {
-    background-color: #eff6ff; /* Для светлой темы */
-    color: var(--primary);
-    font-weight: 500;
-}
-
-/* Стили для кнопки переключения темы в меню */
-.theme-toggle-item {
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0.75rem;
-    color: var(--text-main);
-    font-size: 0.9rem;
-    border-radius: 8px;
-    transition: background-color 0.2s;
-}
-
-/* .theme-toggle-item:hover {
-    background-color: var(--border);
-} */
-
-/* Класс для скрытия иконок */
-.hidden {
-    display: none !important;
-}
-
-/* Убираем границу у карточек на светлой теме, оставляем только тень */
-@media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) .file-card {
-        border: none;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-}
-
-/* Адаптивность для мобильных */
-@media (max-width: 768px) {
-    .sort-menu, .user-dropdown {
-        right: 0;
-    }
+    cursor: default;
 }
 
 .btn-sort {
@@ -538,7 +185,6 @@ body.is-dragging * {
     border-color: var(--primary);
 }
 
-
 .btn-secondary {
     background-color: #f1f5f9;
     color: var(--text);
@@ -546,70 +192,6 @@ body.is-dragging * {
 }
 .btn-secondary:hover {
     background-color: #e2e8f0;
-}
-
-[data-theme="dark"] .folder-card {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.folder-card:hover {
-    background-color: #eff6ff;
-    border-color: var(--primary);
-    border-style: solid;
-}
-
-[data-theme="dark"] .folder-card:hover {
-    background-color: rgba(96, 165, 250, 0.1);
-}
-
-@media (max-width: 768px) {
-    .file-card {
-        padding: 0.75rem;
-        max-height: 160px;
-        border-radius: 8px;
-        touch-action: manipulation;
-    }
-    
-    .file-card:active {
-        transform: scale(0.98);
-    }
-    
-    .file-icon {
-        height: 80px;
-        font-size: 2.5rem;
-        padding: 0.5rem 0;
-    }
-    
-    .file-card-name {
-        font-size: 0.85rem;
-        max-width: 100%;
-    }
-    
-    .file-card-meta {
-        font-size: 0.7rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .file-card {
-        padding: 0.5rem;
-        max-height: 140px;
-    }
-    
-    .file-icon {
-        height: 70px;
-        font-size: 2rem;
-    }
-    
-    .file-card-name {
-        font-size: 0.75rem;
-    }
-    
-    .file-card-meta {
-        font-size: 0.65rem;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
 }
 
 /* Мобильная оптимизация кнопок действий */
@@ -632,272 +214,5 @@ body.is-dragging * {
         font-size: 1rem;
         min-width: 36px;
         min-height: 36px;
-    }
-}
-
-
-/* === БЕЙДЖИ ДЛЯ ВИДЕО === */
-.video-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    z-index: 5;
-    backdrop-filter: blur(4px);
-}
-
-.video-badge::before {
-    content: '▶';
-    font-size: 0.6rem;
-}
-
-.file-card {
-    position: relative;
-}
-
-
-/* === СТИЛИ ДЛЯ БЫСТРЫХ ФИЛЬТРОВ В SIDEBAR === */
-.sidebar-filters {
-    margin-bottom: 2rem;
-    border-radius: 8px;
-    margin-top: 50px;
-}
-
-.filters-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-main);
-}
-
-.sidebar-filters .filter-btn {
-    width: 100%;
-    padding: 0.6rem 0.8rem;
-    margin-bottom: 0.5rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-main);
-    transition: all 0.2s ease;
-    text-align: left;
-}
-
-.sidebar-filters .filter-btn:last-child {
-    margin-bottom: 0;
-}
-
-.sidebar-filters .filter-btn:hover {
-    background: #f1f5f9;
-    border-color: var(--primary);
-    transform: translateX(2px);
-}
-
-[data-theme="dark"] .sidebar-filters .filter-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-filters .filter-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="dark"] .sidebar-filters .filter-btn.active {
-    background: var(--primary);
-    color: white;
-}
-
-/* Адаптивность для мобильных */
-@media (max-width: 768px) {
-    .sidebar-filters {
-        display: flex;
-        gap: 0.5rem;
-        overflow-x: auto;
-        padding: 0.75rem;
-        margin-bottom: 1rem;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-    
-    .sidebar-filters::-webkit-scrollbar {
-        display: none;
-    }
-    
-    .filters-title {
-        display: none;
-    }
-    
-    .sidebar-filters .filter-btn {
-        width: auto;
-        min-width: fit-content;
-        margin-bottom: 0;
-        padding: 0.5rem 0.8rem;
-        font-size: 0.8rem;
-        white-space: nowrap;
-    }
-}
-
-@media (max-width: 480px) {
-    .sidebar-filters .filter-btn {
-        padding: 0.4rem 0.7rem;
-        font-size: 0.75rem;
-    }
-}
-
-/* === ФИЛЬТРЫ В SIDEBAR === */
-.sidebar-filters {
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.filter-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border: none;
-    border-radius: 8px;
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.filter-btn:hover {
-    background-color: var(--bg-primary);
-    transform: translateY(-1px);
-}
-
-.filter-btn.active {
-    background-color: var(--accent-color);
-    color: white;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.filter-btn.active {
-    background-color: var(--accent-color);
-    color: white;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-/* === МОБИЛЬНЫЕ ФИЛЬТРЫ === */
-.mobile-filters {
-    display: none; /* Скрыты по умолчанию на десктопе */
-    padding: 0.75rem 1rem;
-    gap: 0.5rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-body);
-}
-
-.mobile-filters::-webkit-scrollbar {
-    display: none;
-}
-
-.mobile-filter-btn {
-    flex-shrink: 0;
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    background: var(--bg-card);
-    color: var(--text-main);
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
-
-.mobile-filter-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--primary);
-}
-
-.mobile-filter-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-}
-
-/* Показываем мобильные фильтры только на экранах < 768px */
-@media (max-width: 768px) {
-    .mobile-filters {
-        display: flex;
-    }
-    
-    /* Скрываем фильтры в сайдбаре на мобильных */
-    .sidebar-filters {
-        display: none;
-    }
-}
-
-/* === МОБИЛЬНЫЕ ФИЛЬТРЫ === */
-.mobile-filters {
-    display: none; /* Скрыты по умолчанию */
-    padding: 0.75rem 1rem;
-    gap: 0.5rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-body);
-}
-
-.mobile-filters::-webkit-scrollbar {
-    display: none;
-}
-
-.mobile-filter-btn {
-    flex-shrink: 0;
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    background: var(--bg-card);
-    color: var(--text-main);
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
-
-.mobile-filter-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--primary);
-}
-
-.mobile-filter-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-}
-
-/* Показываем мобильные фильтры только на экранах < 768px */
-@media (max-width: 768px) {
-    .mobile-filters {
-        display: flex;
-    }
-    
-    /* Скрываем фильтры в сайдбаре на мобильных */
-    .sidebar-filters {
-        display: none;
     }
 }

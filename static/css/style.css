@@ -8,3 +8,6 @@
 @import 'dark-theme.css';
 @import 'action-bar.css';
 @import 'mobile-enhancements.css';
+@import "file-card.css";
+@import "user-menu.css";
+@import "fast-filters.css";
