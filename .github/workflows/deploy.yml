@@ -40,8 +40,7 @@ jobs:
       - name: Checkout tests repo
         uses: actions/checkout@v4
         with:
-          repository: ТВОЙ_ЛОГИН/ИМЯ_РЕПО_С_ТЕСТАМИ
-          token: ${{ secrets.TESTS_PAT }}   # убери строку, если репо с тестами публичный
+          repository: mikarchevski/qa-tests
 
       - uses: actions/setup-python@v5
         with:
