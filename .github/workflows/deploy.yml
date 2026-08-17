@@ -57,5 +57,5 @@ jobs:
 
       - name: Smoke test
         run: |
-          curl -sf ${{ env.PROD_URL }}/ -o /dev/null
+          curl -sf ${{ env.PROD_URL }}/static/css/uploder.css -o /dev/null
           echo "DEPLOY OK"
