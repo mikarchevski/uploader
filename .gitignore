@@ -33,7 +33,7 @@ Thumbs.db
 .idea/
 
 # Environment variables
-.env.env
+.env
 
 # ============================================
 # Кэш и временные файлы
