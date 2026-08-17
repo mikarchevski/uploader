@@ -28,6 +28,50 @@ jobs:
       - name: Compile check
         run: python -m compileall -q app.py backend check_config.py
 
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: deploy
+    env:
+      APP_URL: https://benx-share.duckdns.org
+      TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+    steps:
+      - name: Checkout tests repo
+        uses: actions/checkout@v4
+        with:
+          repository: ТВОЙ_ЛОГИН/ИМЯ_РЕПО_С_ТЕСТАМИ
+          token: ${{ secrets.TESTS_PAT }}   # убери строку, если репо с тестами публичный
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chromium for Playwright
+        run: playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: pytest -v --alluredir=allure-results
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results/
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+
   deploy:
     needs: test
     runs-on: self-hosted
