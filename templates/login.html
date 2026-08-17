@@ -19,7 +19,7 @@
         </div>
 
         <!-- Блок ошибки. Если сервер вернул error, показываем его -->
-        <div id="errorMessage" class="error-msg {% if error %}visible{% endif %}">
+        <div id="errorMessage" stid='error-message' class="error-msg {% if error %}visible{% endif %}">
             {% if error %}{{ error }}{% endif %}
         </div>
 
