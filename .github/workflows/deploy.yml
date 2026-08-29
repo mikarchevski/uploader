@@ -1,4 +1,4 @@
-name: uploader CI/CD
+name: uploader  CI/CD
 
 on:
   push:
