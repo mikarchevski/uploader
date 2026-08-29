@@ -9,12 +9,12 @@ export class SortManager {
         this.sortMenu = options.sortMenu;
         this.btnSortText = options.btnSortText;
         this.userDropdown = options.userDropdown;
-        
+
         this.currentSortField = CONFIG.DEFAULT_SORT_FIELD;
         this.currentSortOrder = CONFIG.DEFAULT_SORT_ORDER;
-        
+
         this.onSortChange = options.onSortChange; // callback при изменении сортировки
-        
+
         this.init();
     }
 
@@ -32,14 +32,14 @@ export class SortManager {
 
     updateSortButtonText() {
         if (!this.btnSortText) return;
-        
+
         const fieldMap = {
             'date': 'Дате',
             'name': 'Названию',
             'size': 'Размеру',
             'type': 'Типу'
         };
-        
+
         const orderMap = {
             'desc': ' (по убыванию)',
             'asc': ' (по возрастанию)'
@@ -47,15 +47,38 @@ export class SortManager {
 
         const fieldName = fieldMap[this.currentSortField] || 'Дате';
         const orderName = orderMap[this.currentSortOrder] || '';
-        
+
         this.btnSortText.textContent = `${fieldName}${orderName}`;
+    }
+
+    updateMenuSelection() {
+        // Обновляем активные опции поля сортировки
+        this.sortMenu.querySelectorAll('.sort-option').forEach(btn => {
+            const field = btn.getAttribute('data-field');
+            if (field === this.currentSortField) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Обновляем активные кнопки порядка сортировки
+        this.sortMenu.querySelectorAll('.sort-order-btn').forEach(btn => {
+            const order = btn.getAttribute('data-order');
+            if (order === this.currentSortOrder) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
     }
 
     setSort(field, order) {
         this.currentSortField = field;
         this.currentSortOrder = order;
         this.updateSortButtonText();
-        
+        this.updateMenuSelection();
+
         if (this.onSortChange) {
             this.onSortChange(this.currentSortField, this.currentSortOrder);
         }
@@ -64,7 +87,7 @@ export class SortManager {
     toggleMenu() {
         const dropdown = this.btnSort.closest('.sort-dropdown');
         const isActive = this.sortMenu.classList.contains('active');
-        
+
         if (!isActive && this.userDropdown) {
             this.userDropdown.classList.remove('show');
             setTimeout(() => {
@@ -121,7 +144,7 @@ export class SortManager {
                 this.closeMenu();
             });
         });
-        
+
         // Обработчики кнопок порядка сортировки
         this.sortMenu.querySelectorAll('.sort-order-btn').forEach(btn => {
             btn.addEventListener('click', () => {

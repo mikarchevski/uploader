@@ -140,3 +140,25 @@
 .upload-item.cancelled .item-status {
     color: #9ca3af;
 }
+
+.manager-header .close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary, #a0aec0);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.manager-header .close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary, #fff);
+}
