@@ -6,7 +6,7 @@ on:
 
 env:
   PROD_HOST: benx@192.168.1.146
-  PROD_URL: httpS://benx-share.duckdns.org
+  PROD_URL: httpS://disk.mk5d.ru
 
 jobs:
   test:
