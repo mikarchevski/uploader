@@ -255,6 +255,7 @@ export class UploadManager {
     createUploadItem(file, referenceNode = null) {
         const itemEl = document.createElement('div');
         itemEl.className = 'upload-item';
+        itemEl.setAttribute('data-testid', `upload-item-${file.name.replace(/\s+/g, '-')}`);
 
         itemEl.innerHTML = `
             <div class="item-header">
@@ -274,6 +275,7 @@ export class UploadManager {
         }
 
         const cancelBtn = itemEl.querySelector('.cancel-btn');
+        cancelBtn.setAttribute('data-testid', `cancel-upload-btn-${file.name.replace(/\s+/g, '-')}`);
 
         return {
             element: itemEl,

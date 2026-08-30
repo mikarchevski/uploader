@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Share</title>
     <script>
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
@@ -16,10 +17,11 @@
     </script>
     <!-- Подключаем главный CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
+
     <!-- CSRF Token Meta Tag -->
     <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
 </head>
+
 <body>
 
     <!-- Полноэкранная зона перетаскивания -->
@@ -41,7 +43,7 @@
     <!-- Левая панель: Загрузка -->
     <aside class="sidebar">
         <h1>Диск</h1>
-        
+
         <!-- Остальной контент сайдбара... -->
         <!-- Скрытый инпут для выбора файла -->
         <input type="file" id="fileInput" hidden multiple>
@@ -49,7 +51,7 @@
         <!-- Скрытый инпут для выбора папки -->
         <input type="file" id="folderInput" hidden webkitdirectory directory multiple>
 
-        
+
         <!-- Информация о выбранном файле -->
         <div class="file-info" id="fileInfo">
             <div class="file-name" id="fileName"></div>
@@ -63,36 +65,51 @@
         </div>
 
         <!-- Кнопка загрузки -->
-        <button class="btn" id="uploadBtn">
-            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" focusable="false" fill="none" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
-                <path fill="currentColor" d="M2.5 8.53v1.9c0 1.011.002 1.664.049 2.158.045.471.12.641.172.727.123.201.293.37.495.495.085.052.255.127.726.171.494.047 1.147.05 2.158.05h3.8c1.011 0 1.664-.003 2.158-.05.471-.044.64-.12.726-.171.202-.124.372-.294.495-.495.053-.086.127-.256.172-.727.047-.494.049-1.147.049-2.157v-1.9H15v1.9c0 1.964 0 2.945-.442 3.667a3 3 0 0 1-.99.99c-.722.442-1.704.442-3.668.442H6.1c-1.964 0-2.946 0-3.667-.442a3 3 0 0 1-.99-.99C1 13.376 1 12.395 1 10.43v-1.9zM8 .47l4.03 4.03-1.06 1.06-2.22-2.22v7.19h-1.5V3.34L5.03 5.56 3.97 4.5z">
+        <button class="btn" id="uploadBtn" data-testid="upload-file-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" focusable="false"
+                fill="none" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+                <path fill="currentColor"
+                    d="M2.5 8.53v1.9c0 1.011.002 1.664.049 2.158.045.471.12.641.172.727.123.201.293.37.495.495.085.052.255.127.726.171.494.047 1.147.05 2.158.05h3.8c1.011 0 1.664-.003 2.158-.05.471-.044.64-.12.726-.171.202-.124.372-.294.495-.495.053-.086.127-.256.172-.727.047-.494.049-1.147.049-2.157v-1.9H15v1.9c0 1.964 0 2.945-.442 3.667a3 3 0 0 1-.99.99c-.722.442-1.704.442-3.668.442H6.1c-1.964 0-2.946 0-3.667-.442a3 3 0 0 1-.99-.99C1 13.376 1 12.395 1 10.43v-1.9zM8 .47l4.03 4.03-1.06 1.06-2.22-2.22v7.19h-1.5V3.34L5.03 5.56 3.97 4.5z">
                 </path>
             </svg> Выбрать файл
         </button>
 
-        <button class="btn btn-secondary" id="uploadFolderBtn" style="margin-top: 10px; width: 100%;">+ Выбрать папку</button>
+        <button class="btn btn-secondary" id="uploadFolderBtn" data-testid="upload-folder-btn"
+            style="margin-top: 10px; width: 100%;">+ Выбрать папку</button>
 
-         <!-- === БЫСТРЫЕ ФИЛЬТРЫ В SIDEBAR === -->
+        <!-- === БЫСТРЫЕ ФИЛЬТРЫ В SIDEBAR === -->
         <div class="sidebar-filters">
             <button class="filter-btn active" data-filter="all">
-                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" focusable="false" fill="none" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="M7.938 2.549H12a4 4 0 0 1 4 4V11a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V5a4 4 0 0 1 4-4h2.424zM4 2.5A2.5 2.5 0 0 0 1.5 5v6A2.5 2.5 0 0 0 4 13.5h8a2.5 2.5 0 0 0 2.5-2.5V6.549a2.5 2.5 0 0 0-2.5-2.5H7.306L5.792 2.5z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" focusable="false"
+                    fill="none" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+                    <path fill="currentColor"
+                        d="M7.938 2.549H12a4 4 0 0 1 4 4V11a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V5a4 4 0 0 1 4-4h2.424zM4 2.5A2.5 2.5 0 0 0 1.5 5v6A2.5 2.5 0 0 0 4 13.5h8a2.5 2.5 0 0 0 2.5-2.5V6.549a2.5 2.5 0 0 0-2.5-2.5H7.306L5.792 2.5z">
+                    </path>
+                </svg>
                 Все файлы
             </button>
             <button class="filter-btn" data-filter="video">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="4" width="20" height="16" rx="2" />
                     <polygon points="10 8 16 12 10 16" />
                 </svg>
                 Видео
             </button>
             <button class="filter-btn" data-filter="image">
-                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" focusable="false" fill="none" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16"><path fill="currentColor" d="m9.9 1 1.3.007c1.139.02 1.826.104 2.367.435.404.248.743.587.99.99C15 3.155 15 4.137 15 6.1v3.8c0 1.964 0 2.946-.442 3.667a3 3 0 0 1-.99.99C12.845 15 11.863 15 9.9 15H6.1c-1.964 0-2.946 0-3.667-.442a3 3 0 0 1-.99-.99C1 12.845 1 11.863 1 9.9V6.1c0-1.964 0-2.946.442-3.667a3 3 0 0 1 .99-.99C3.155 1 4.137 1 6.1 1zM7.862 12.062l-3.119-.78-2.02 1.505c.123.2.292.37.493.492.085.053.255.127.726.172.494.047 1.147.049 2.158.049h3.8c1.011 0 1.664-.002 2.158-.049.471-.045.64-.12.726-.172a1.5 1.5 0 0 0 .495-.495c.053-.085.127-.255.172-.726.03-.322.043-.712.047-1.225l-2.57-1.142zM6.1 2.5c-1.011 0-1.664.002-2.158.049-.471.045-.64.12-.726.172a1.5 1.5 0 0 0-.495.495c-.053.085-.127.255-.172.726C2.502 4.436 2.5 5.09 2.5 6.1v3.8c0 .461 0 .848.005 1.18l1.913-1.426 3.103.776 3.199-2.473 2.78 1.235V6.1c0-1.011-.002-1.664-.049-2.158-.045-.471-.12-.64-.172-.726a1.5 1.5 0 0 0-.495-.495c-.085-.053-.255-.127-.726-.172a12 12 0 0 0-.885-.042L9.9 2.5zm.347 1.644a2.305 2.305 0 1 1 0 4.61 2.305 2.305 0 0 1 0-4.61m0 1.5a.805.805 0 1 0 0 1.609.805.805 0 0 0 0-1.61"></path></svg>
-             Фото</button>
+                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" focusable="false"
+                    fill="none" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+                    <path fill="currentColor"
+                        d="m9.9 1 1.3.007c1.139.02 1.826.104 2.367.435.404.248.743.587.99.99C15 3.155 15 4.137 15 6.1v3.8c0 1.964 0 2.946-.442 3.667a3 3 0 0 1-.99.99C12.845 15 11.863 15 9.9 15H6.1c-1.964 0-2.946 0-3.667-.442a3 3 0 0 1-.99-.99C1 12.845 1 11.863 1 9.9V6.1c0-1.964 0-2.946.442-3.667a3 3 0 0 1 .99-.99C3.155 1 4.137 1 6.1 1zM7.862 12.062l-3.119-.78-2.02 1.505c.123.2.292.37.493.492.085.053.255.127.726.172.494.047 1.147.049 2.158.049h3.8c1.011 0 1.664-.002 2.158-.049.471-.045.64-.12.726-.172a1.5 1.5 0 0 0 .495-.495c.053-.085.127-.255.172-.726.03-.322.043-.712.047-1.225l-2.57-1.142zM6.1 2.5c-1.011 0-1.664.002-2.158.049-.471.045-.64.12-.726.172a1.5 1.5 0 0 0-.495.495c-.053.085-.127.255-.172.726C2.502 4.436 2.5 5.09 2.5 6.1v3.8c0 .461 0 .848.005 1.18l1.913-1.426 3.103.776 3.199-2.473 2.78 1.235V6.1c0-1.011-.002-1.664-.049-2.158-.045-.471-.12-.64-.172-.726a1.5 1.5 0 0 0-.495-.495c-.085-.053-.255-.127-.726-.172a12 12 0 0 0-.885-.042L9.9 2.5zm.347 1.644a2.305 2.305 0 1 1 0 4.61 2.305 2.305 0 0 1 0-4.61m0 1.5a.805.805 0 1 0 0 1.609.805.805 0 0 0 0-1.61">
+                    </path>
+                </svg>
+                Фото</button>
             <button class="filter-btn" data-filter="new">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <polyline points="12 6 12 12 18 14" />
-</svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 18 14" />
+                </svg>
                 Новые (24ч)</button>
         </div>
         <!-- Результат загрузки (ссылка) -->
@@ -110,7 +127,8 @@
 
         <!-- === КНОПКА ДОБАВЛЕНИЯ ФАЙЛОВ (FAB) ДЛЯ МОБИЛЬНЫХ === -->
         <button id="mobileAddBtn" class="mobile-fab" title="Добавить файлы">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -121,17 +139,19 @@
         <!-- === МЕНЮ ПОЛЬЗОВАТЕЛЯ (ПРАВЫЙ ВЕРХНИЙ УГОЛ) === -->
         {% if current_user %}
         <div class="user-menu-wrapper">
-            <button id="userMenuBtn" class="user-menu-btn" title="Меню пользователя">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button id="userMenuBtn" class="user-menu-btn" data-testid="user-menu-btn" title="Меню пользователя">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                 </svg>
             </button>
-            
+
             <div id="userDropdown" class="user-dropdown hidden">
                 <div class="dropdown-header">
                     <div class="dropdown-avatar">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                             <circle cx="12" cy="7" r="4"></circle>
                         </svg>
@@ -139,16 +159,31 @@
                     <span class="dropdown-username">{{ current_user }}</span>
                 </div>
                 <!-- Кнопка переключения темы -->
-                <button id="themeToggle" class="dropdown-item theme-toggle-item">
+                <button id="themeToggle" class="dropdown-item theme-toggle-item" data-testid="theme-toggle-btn">
                     <!-- Иконка Луны (для светлой темы) -->
-                    <svg id="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    <svg id="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
                     <!-- Иконка Солнца (для темной темы, скрыта по умолчанию) -->
-                    <svg id="iconSun" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg id="iconSun" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
                     <span id="themeText">Тёмная тема</span>
                 </button>
                 <div class="dropdown-divider"></div>
-                <a href="/logout" class="dropdown-item logout-item">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <a href="/logout" class="dropdown-item logout-item" data-testid="logout-link">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                         <polyline points="16 17 21 12 16 7"></polyline>
                         <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -160,33 +195,33 @@
         {% endif %}
         <!-- === КОНЕЦ МЕНЮ ПОЛЬЗОВАТЕЛЯ === -->
 
-      <!-- Панель управления файлом (появляется при клике на файл) -->
+        <!-- Панель управления файлом (появляется при клике на файл) -->
         <div id="fileActionBar" class="file-action-bar hidden">
             <div class="action-bar-content">
                 <!-- Текст может меняться: "1 файл" или "Выбрано: 3" -->
                 <span id="actionFileName" class="action-file-name">Имя файла</span>
-                
+
                 <div class="action-buttons">
                     <!-- Кнопки для одиночного действия -->
                     <button id="btnDownload" class="action-btn btn-download-small">⬇ Скачать</button>
                     <button id="btnCopyLink" class="action-btn btn-copy-small">📋 Ссылка</button>
-                    
+
                     <!-- Кнопка удаления (универсальная) -->
                     <button id="btnDelete" class="action-btn btn-delete-small">🗑 Удалить</button>
-                    
+
                     <button id="btnCloseBar" class="action-btn btn-close-small">×</button>
                 </div>
             </div>
         </div>
 
         <!-- Модальное окно подтверждения удаления -->
-        <div id="deleteConfirmModal" class="modal-overlay hidden">
+        <div id="deleteConfirmModal" class="modal-overlay hidden" data-testid="delete-confirm-modal">
             <div class="modal-content">
                 <h3>Подтверждение удаления</h3>
-                <p><strong id="modalFileName">filename.txt</strong></p>
+                <p><strong id="modalFileName" data-testid="modal-file-name">filename.txt</strong></p>
                 <div class="modal-actions">
-                    <button id="btnCancelDelete" class="btn-secondary">Отмена</button>
-                    <button id="btnConfirmDelete" class="btn-danger">Удалить</button>
+                    <button id="btnCancelDelete" class="btn-secondary" data-testid="cancel-delete-btn">Отмена</button>
+                    <button id="btnConfirmDelete" class="btn-danger" data-testid="confirm-delete-btn">Удалить</button>
                 </div>
             </div>
         </div>
@@ -194,69 +229,81 @@
         <!-- Заголовок и сортировка -->
         <div class="files-header">
             <h2>📁 Файлы</h2>
-            
+
             <!-- Блок управления справа -->
             <div class="files-controls">
                 <span id="fileCount" class="file-count">Загрузка...</span>
-                <button id="bulkDeleteBtn" class="btn-bulk-delete hidden">🗑 Удалить выбранное</button>
+                <button id="bulkDeleteBtn" class="btn-bulk-delete hidden" data-testid="bulk-delete-btn">🗑 Удалить
+                    выбранное</button>
 
-               
+
                 <!-- === КОНЕЦ БЫСТРЫХ ФИЛЬТРОВ === -->
                 <!-- Кнопка и меню сортировки -->
                 <div class="sort-dropdown">
-                     <button id="btnSort" class="btn-sort">
-                        
+                    <button id="btnSort" class="btn-sort" data-testid="sort-dropdown-btn">
+
                         <!-- Иконка списка -->
-                        <svg class="sort-icon-list" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h12M3 18h6"/></svg>
-                        
+                        <svg class="sort-icon-list" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M3 12h12M3 18h6" />
+                        </svg>
+
                         <!-- Текст (будет меняться JS) -->
                         <span id="btnSortText">Дате (по убыванию)</span>
-                        
+
                         <!-- Стрелочка (будет вращаться CSS) -->
-                        <svg class="sort-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                        <svg class="sort-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 9l6 6 6-6" />
+                        </svg>
                     </button>
-                    
+
                     <div id="sortMenu" class="sort-menu hidden">
                         <div class="sort-group">
                             <div class="sort-label">Поле</div>
-                            <button class="sort-option active" data-field="date">Дате загрузки</button>
-                            <button class="sort-option" data-field="name">Названию</button>
-                            <button class="sort-option" data-field="size">Размеру</button>
-                            <button class="sort-option" data-field="type">Типу</button>
+                            <button class="sort-option active" data-field="date" data-testid="sort-option-date">Дате
+                                загрузки</button>
+                            <button class="sort-option" data-field="name"
+                                data-testid="sort-option-name">Названию</button>
+                            <button class="sort-option" data-field="size"
+                                data-testid="sort-option-size">Размеру</button>
+                            <button class="sort-option" data-field="type" data-testid="sort-option-type">Типу</button>
                         </div>
                         <div class="sort-divider"></div>
                         <div class="sort-group">
                             <div class="sort-label">Порядок</div>
-                            <button class="sort-order-btn active" data-order="desc">По убыванию</button>
-                            <button class="sort-order-btn" data-order="asc">По возрастанию</button>
+                            <button class="sort-order-btn active" data-order="desc" data-testid="sort-order-desc">По
+                                убыванию</button>
+                            <button class="sort-order-btn" data-order="asc" data-testid="sort-order-asc">По
+                                возрастанию</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-         <!-- === МОБИЛЬНЫЕ ФИЛЬТРЫ (видны только на мобильных) === -->
+        <!-- === МОБИЛЬНЫЕ ФИЛЬТРЫ (видны только на мобильных) === -->
         <div class="mobile-filters">
-            <button class="mobile-filter-btn active" data-filter="all">Все</button>
-            <button class="mobile-filter-btn" data-filter="video">Видео</button>
-            <button class="mobile-filter-btn" data-filter="image">Фото</button>
-            <button class="mobile-filter-btn" data-filter="new">Новые</button>
+            <button class="mobile-filter-btn active" data-filter="all" data-testid="filter-all">Все</button>
+            <button class="mobile-filter-btn" data-filter="video" data-testid="filter-video">Видео</button>
+            <button class="mobile-filter-btn" data-filter="image" data-testid="filter-image">Фото</button>
+            <button class="mobile-filter-btn" data-filter="new" data-testid="filter-new">Новые</button>
         </div>
 
         <!-- Контейнер для сетки файлов -->
-        <div id="filesListContainer" class="files-grid loading">
+        <div id="filesListContainer" class="files-grid loading" data-testid="files-list-container">
             <div class="spinner-wrapper">
                 <div class="spinner"></div>
                 <div class="loading-text">Загрузка...</div>
             </div>
         </div>
-       <!-- Lightbox Modal -->
+        <!-- Lightbox Modal -->
         <div id="imageModal" class="modal hidden">
             <span class="close-modal">&times;</span>
             <img class="modal-content" id="modalImage">
             <div id="caption"></div>
         </div>
-         <!-- Модальное окно для видео -->
+        <!-- Модальное окно для видео -->
         <div id="videoModal" class="modal hidden">
             <span class="close-modal" id="closeVideoModal">&times;</span>
             <video class="modal-content" id="modalVideo" controls>
@@ -265,7 +312,8 @@
             <div id="videoCaption"></div>
         </div>
     </main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+
 </html>

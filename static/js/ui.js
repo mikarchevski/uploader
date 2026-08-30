@@ -264,7 +264,7 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             const folderCard = document.createElement('div');
             folderCard.className = 'file-card folder-card';
             folderCard.setAttribute('data-folder-path', folder.path);
-
+            folderCard.setAttribute('data-testid', `folder-card-${encodeURIComponent(folder.path)}`);
             // Индикатор наличия более глубоких подпапок
             const deeperIndicator = folder.hasDeeperSubfolders ? ' 📂' : '';
 
@@ -407,6 +407,7 @@ export function renderFilesGrid(filesListContainer, files, folderNav = null) {
             const card = document.createElement('div');
             card.className = 'file-card';
             card.setAttribute('data-short-id', file.short_id);
+            card.setAttribute('data-testid', `file-card-${file.short_id}`);
             const icon = getIconForFile(file.filename);
             const safeFilename = escapeHtml(file.filename);
 
@@ -670,6 +671,7 @@ export async function addFileToGrid(filesListContainer, fileData) {
             folderCard.className = 'file-card folder-card';
             folderCard.setAttribute('data-folder-path', folderPath);
             folderCard.setAttribute('data-file-count', '1');
+            folderCard.setAttribute('data-testid', `folder-card-${encodeURIComponent(folderPath)}`);
 
             folderCard.innerHTML = `
                 <div class="file-icon-placeholder">📁</div>
@@ -705,6 +707,7 @@ export async function addFileToGrid(filesListContainer, fileData) {
         const newCard = document.createElement('div');
         newCard.className = 'file-card';
         newCard.setAttribute('data-short-id', fileData.short_id);
+        newCard.setAttribute('data-testid', `file-card-${fileData.short_id}`);  // <-- ДОБАВИТЬ
 
         const safeFilename = escapeHtml(fileData.filename);
 
