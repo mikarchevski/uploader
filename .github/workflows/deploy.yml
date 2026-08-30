@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     env:
-      APP_URL: https://benx-share.duckdns.org
+      APP_URL: httpS://disk.mk5d.ru
       TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     steps:
