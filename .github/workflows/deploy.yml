@@ -31,7 +31,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: test
     env:
       APP_URL: httpS://disk.mk5d.ru
       TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
@@ -72,7 +72,7 @@ jobs:
           path: screenshots/
 
   deploy:
-    needs: test
+    needs: e2e
     runs-on: self-hosted
     steps:
       - name: Checkout
