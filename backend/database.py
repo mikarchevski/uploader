@@ -16,7 +16,7 @@ def _invalidate_count_cache(user_id=None):
     Args:
         user_id: ID пользователя (если None, очищает весь кэш)
     """
-    global _files_count_cache
+    #global _files_count_cache
     
     if user_id:
         _files_count_cache.pop(user_id, None)
@@ -32,7 +32,7 @@ def _get_cached_count(user_id):
     Returns:
         int или None если кэш отсутствует/устарел
     """
-    global _files_count_cache
+    #global _files_count_cache
     
     if user_id in _files_count_cache:
         cache_entry = _files_count_cache[user_id]
@@ -49,7 +49,7 @@ def _get_cached_count(user_id):
 
 def _set_cached_count(user_id, count):
     """Сохраняет количество файлов в кэш."""
-    global _files_count_cache
+    #global _files_count_cache
     
     _files_count_cache[user_id] = {
         'count': count,

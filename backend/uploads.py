@@ -8,7 +8,7 @@ from datetime import datetime
 
 from .config import UPLOAD_FOLDER
 from .database import get_file_by_hash, insert_file, get_unique_name_by_hash, get_file_by_hash_and_folder
-from .utils import generate_short_id, format_file_size, compute_file_hash, safe_join_paths, validate_folder_path
+from .utils import generate_short_id, format_file_size, compute_file_hash, safe_join_paths, validate_folder_path, get_or_create_correlation_id
 from .config_constants import SHORT_ID_LENGTH, HASH_LENGTH, MAX_UPLOAD_ATTEMPTS, RATE_LIMIT_UPLOAD, RATE_LIMIT_CHECK_FILE
 
 
@@ -51,7 +51,6 @@ def register_upload_routes(app):
         
         correlation_id = None
         try:
-            from backend.utils import get_or_create_correlation_id
             correlation_id = get_or_create_correlation_id()
             
             user_id = session.get('user_id')
@@ -108,12 +107,7 @@ def register_upload_routes(app):
             tb_str = traceback.format_exc()
             logger.error(f"[CHECK] Error: {str(e)} | Type: {type(e).__name__} | Traceback: {tb_str} | CorrelationID: {correlation_id}")
             return error_response(f'Internal server error: {str(e)}', 500, correlation_id)
-            import traceback
-            tb_str = traceback.format_exc()
-            logger.error(f"[CHECK] Error: {str(e)} | Type: {type(e).__name__} | Traceback: {tb_str} | CorrelationID: {correlation_id}")
-            return error_response(f'Internal server error: {str(e)}', 500, correlation_id)
 
-    # --- ЗАГРУЗКА ФАЙЛА ---
         # --- ЗАГРУЗКА ФАЙЛА ---
     @app.route('/upload', methods=['POST'])
     @rate_limit(RATE_LIMIT_UPLOAD)
