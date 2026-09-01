@@ -4,10 +4,6 @@ on:
   push:
     branches: [main]
 
-env:
-  PROD_HOST: benx@192.168.1.146
-  PROD_URL: httpS://disk.mk5d.ru
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -28,12 +24,12 @@ jobs:
       - name: Compile check
         run: python -m compileall -q app.py backend check_config.py
 
-
-  
-
   deploy:
     needs: test
     runs-on: self-hosted
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,15 +46,15 @@ jobs:
             --exclude '*.log' \
             --exclude '.env' \
             --exclude '__pycache__/' \
-            ./ ${{ env.PROD_HOST }}:/opt/uploader/
+            ./ ${{ secrets.PROD_HOST }}:/opt/uploader/
 
       - name: Update dependencies on prod
-        run: ssh ${{ env.PROD_HOST }} 'pip3 install --break-system-packages -q -r /opt/uploader/requirements.txt'
+        run: ssh ${{ secrets.PROD_HOST }} 'pip3 install --break-system-packages -q -r /opt/uploader/requirements.txt'
 
       - name: Restart service
-        run: ssh ${{ env.PROD_HOST }} 'sudo systemctl restart uploader && sleep 2 && systemctl is-active uploader'
+        run: ssh ${{ secrets.PROD_HOST }} 'sudo systemctl restart uploader && sleep 2 && systemctl is-active uploader'
 
       - name: Smoke test
         run: |
-          curl -sf ${{ env.PROD_URL }}/login -o /dev/null
+          curl -sf ${{ secrets.PROD_URL }}/login -o /dev/null
           echo "DEPLOY OK"
