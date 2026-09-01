@@ -187,7 +187,7 @@ export class UploadManager {
                         barEl.style.width = percent + '%';
 
                         if (completedCount === totalFiles) {
-                            statusEl.textContent = '✅ Папка загружена';
+                            statusEl.textContent = '✅ Готово';
                             itemEl.classList.add('success');
                             cancelBtn.style.display = 'none';
                             setTimeout(() => itemEl.remove(), 3000);
