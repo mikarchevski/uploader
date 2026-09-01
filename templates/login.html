@@ -13,9 +13,9 @@
     <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-header">
-            <h1 id="pageTitle">Вход</h1>
+    <div class="auth-container" data-testid="auth-container">
+        <div class="auth-header" data-testid="auth-header">
+            <h1 id="pageTitle" data-testid="page-title">Вход</h1>
         </div>
 
         <!-- Блок ошибки. Если сервер вернул error, показываем его -->
@@ -25,31 +25,32 @@
 
         <!-- Форма всегда отправляет на /login -->
         <form method="POST" action="/login" data-testid="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- CSRF Token для формы -->
             <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/>
             
             <!-- Скрытое поле для режима. 0 = вход, 1 = регистрация -->
-            <input type="hidden" name="register" id="registerMode" value="0">
+            <input type="hidden" name="register" id="registerMode" value="0" data-testid="register-mode-input">
 
-            <div class="form-group">
-                <label class="form-label">Имя пользователя</label>
+            <div class="form-group" data-testid="username-form-group">
+                <label class="form-label" data-testid="username-label">Имя пользователя</label>
                 <input type="text" data-testid='username-input' name="username" class="form-input" required autocomplete="username">
             </div>
             
-            <div class="form-group">
-                <label class="form-label">Пароль</label>
+            <div class="form-group" data-testid="password-form-group">
+                <label class="form-label" data-testid="password-label">Пароль</label>
                 <input type="password" data-testid='password-input' name="password" class="form-input" required autocomplete="current-password">
             </div>
 
             <button type="submit" data-testid='submit-btn' class="btn-submit" id="submitBtn">Войти</button>
         </form>
 
-        <div class="auth-switch">
-            <span id="switchText">Нет аккаунта?</span>
-            <a class="auth-link" id="toggleLink">Зарегистрироваться</a>
+        <div class="auth-switch" data-testid="auth-switch">
+            <span id="switchText" data-testid="switch-text">Нет аккаунта?</span>
+            <a class="auth-link" id="toggleLink" data-testid="toggle-link">Зарегистрироваться</a>
         </div>
         
-        <a href="/" class="back-home">← Вернуться на главную</a>
+        <a href="/" class="back-home" data-testid="back-home-link">← Вернуться на главную</a>
     </div>
 
     <!-- Подключаем скрипт авторизации -->
