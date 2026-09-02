@@ -1,44 +1,77 @@
-name: uploader  CI/CD
+name: Uploader CI/CD Pipeline
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+
+# Глобальные переменные для избежания дублирования
+env:
+  PYTHON_VERSION: "3.11"
 
 jobs:
-  test:
+  # ═══════════════════════════════════════════════════════════
+  # 1. СТАТИЧЕСКИЙ АНАЛИЗ (Быстро, параллельно, на каждом PR)
+  # ═══════════════════════════════════════════════════════════
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install flake8
+        run: pip install flake8
 
-      - name: Compile check
-        run: python -m compileall -q app.py backend check_config.py
-      - name: Lint with flake8
+      - name: Run flake8
         run: |
-          pip install flake8
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
+  compile-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Compile check
+        run: python -m compileall -q app.py backend check_config.py
+
+  # ═══════════════════════════════════════════════════════════
+  # 2. ДЕПЛОЙ (Только для main, только если lint/compile прошли)
+  # ═══════════════════════════════════════════════════════════
   deploy:
-    needs: test
+    needs: [lint, compile-check]
+    if: github.ref == 'refs/heads/main'
     runs-on: self-hosted
+    timeout-minutes: 10
     environment:
       name: production
       url: ${{ vars.PROD_URL }}
+    
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create Backup (Критически важно для отката)
+        run: |
+          ssh ${{ secrets.PROD_HOST }} '
+            mkdir -p /opt/uploader.bak && 
+            rsync -a --delete /opt/uploader/ /opt/uploader.bak/
+          '
 
       - name: Sync code to prod
         run: |
@@ -54,20 +87,38 @@ jobs:
             --exclude '__pycache__/' \
             ./ ${{ secrets.PROD_HOST }}:/opt/uploader/
 
-      - name: Update dependencies on prod
-        run: ssh ${{ secrets.PROD_HOST }} 'pip3 install --break-system-packages -q -r /opt/uploader/requirements.txt'
+      - name: Update dependencies (Безопасно, через venv)
+        run: |
+          ssh ${{ secrets.PROD_HOST }} '
+            cd /opt/uploader &&
+            python3 -m venv venv &&
+            source venv/bin/activate &&
+            pip install --upgrade pip -q &&
+            pip install -q -r requirements.txt
+          '
 
       - name: Restart service
-        run: ssh ${{ secrets.PROD_HOST }} 'sudo systemctl restart uploader && sleep 2 && systemctl is-active uploader'
-
-      - name: Smoke test
         run: |
-          curl -sf ${{ secrets.PROD_URL }}/login -o /dev/null
-          echo "DEPLOY OK"
+          ssh ${{ secrets.PROD_HOST }} '
+            sudo systemctl restart uploader &&
+            sleep 3 &&
+            systemctl is-active --quiet uploader
+          '
 
+      - name: Basic Smoke Test
+        run: |
+          curl -sf ${{ vars.PROD_URL }}/login -o /dev/null || { echo "❌ Smoke test failed: /login"; exit 1; }
+          curl -sf ${{ vars.PROD_URL }}/ -o /dev/null || { echo "❌ Smoke test failed: /"; exit 1; }
+          echo "✅ Basic smoke test passed"
+
+  # ═══════════════════════════════════════════════════════════
+  # 3. E2E ТЕСТЫ (Проверяем реальный продакшн после деплоя)
+  # ═══════════════════════════════════════════════════════════
   e2e:
-    needs: deploy 
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     env:
       APP_URL: ${{ vars.PROD_URL }}
@@ -75,29 +126,37 @@ jobs:
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
     
     steps:
-      - name: Checkout tests repo
+      - name: Checkout QA tests repo
         uses: actions/checkout@v4
         with:
           repository: mikarchevski/qa-tests
+          # Если тесты лежат в том же репозитории, уберите блок 'with' выше
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: 'pip'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
-      - name: Install test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
-      - name: Install Chromium for Playwright
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Chromium
         run: playwright install --with-deps chromium
 
       - name: Run E2E tests
         run: pytest -v --alluredir=allure-results --browser=chromium
 
       - name: Upload Allure results
-        if: always() # Загружаем артефакты даже если тесты упали
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-results
@@ -111,3 +170,25 @@ jobs:
           name: failure-screenshots
           path: screenshots/
           retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════
+  # 4. АВТОМАТИЧЕСКИЙ ОТКАТ (Только если E2E упали)
+  # ═══════════════════════════════════════════════════════════
+  rollback:
+    needs: [deploy, e2e]
+    if: needs.e2e.result == 'failure' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Restore Backup
+        run: |
+          ssh ${{ secrets.PROD_HOST }} '
+            echo "⚠️ E2E TESTS FAILED! Initiating automatic rollback..."
+            rsync -az --delete /opt/uploader.bak/ /opt/uploader/
+            sudo systemctl restart uploader
+            echo "✅ Rollback completed. Production restored to previous state."
+          '
+      
+      - name: Notify about rollback (Опционально)
+        run: echo "⚠️ Автоматический откат был выполнен из-за падения E2E тестов."
+        # Здесь можно добавить curl запрос к Telegram/Slack webhook
