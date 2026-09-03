@@ -48,6 +48,7 @@ def register_file_routes(app):
 
     # --- СПИСОК ФАЙЛОВ ---
     @app.route('/api/files', methods=['GET'])
+    
     @rate_limit("600 per minute")
     def list_files_api():
         correlation_id = None
@@ -56,6 +57,9 @@ def register_file_routes(app):
             correlation_id = get_or_create_correlation_id()
             
             user_id = session.get('user_id')
+
+            if not user_id:
+                return error_response('Требуется авторизация', 401, correlation_id)
             
             page = request.args.get('page', 1, type=int)
             per_page = request.args.get('per_page', 20, type=int)
