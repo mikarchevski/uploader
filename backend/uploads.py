@@ -145,8 +145,8 @@ def register_upload_routes(app):
                 return error_response('Invalid hash', 400, correlation_id)
             
             # Проверяем существует ли уже такой файл у этого пользователя
-            existing = get_file_by_hash_and_folder(file_hash, user_id, folder_path) if folder_path else get_file_by_hash(file_hash)
-            
+            existing = get_file_by_hash_and_folder(file_hash, user_id, folder_path or '')
+                        
             if existing and existing.get('owner_id') == user_id:
                 logger.info(f"[UPLOAD] File already exists for user {user_id}: {file.filename} | CorrelationID: {correlation_id}")
                 return jsonify({

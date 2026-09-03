@@ -425,7 +425,7 @@ export class UploadManager {
                 }
 
                 if (checkData.exists && checkData.owned) {
-                    if (uiItem) uiItem.setStatus('Пропуск (уже есть)');
+                    if (uiItem) uiItem.setStatus('Файл уже загружен');
                     if (queueItem.parentUi) queueItem.parentUi.updateProgress();
                     resolve();
                     return;
