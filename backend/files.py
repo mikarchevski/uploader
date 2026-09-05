@@ -3,6 +3,8 @@ import os
 import sqlite3
 import logging
 from flask import request, jsonify, session
+from backend.extensions import limiter
+from backend.config_constants import MAX_PAGE_SIZE
 from datetime import datetime
 
 from .config import UPLOAD_FOLDER, DB_PATH
@@ -25,13 +27,6 @@ def register_file_routes(app):
     logger = logging.getLogger(__name__)
     client_logger = logging.getLogger('client_frontend') 
     
-    limiter = app.extensions.get('limiter')
-    
-    def rate_limit(limit_string):
-        if limiter:
-            return limiter.limit(limit_string)
-        return lambda f: f
-    
     def error_response(message, status_code, correlation_id=None):
         from flask import jsonify
         from backend.utils import get_or_create_correlation_id
@@ -49,7 +44,7 @@ def register_file_routes(app):
     # --- СПИСОК ФАЙЛОВ ---
     @app.route('/api/files', methods=['GET'])
     
-    @rate_limit("600 per minute")
+    @limiter.limit("600/minute")
     def list_files_api():
         correlation_id = None
         try:
@@ -116,7 +111,7 @@ def register_file_routes(app):
             return error_response('Failed to list files', 500, correlation_id)
     # --- УДАЛЕНИЕ ОДНОГО ФАЙЛА ---
     @app.route('/api/delete/<short_id>', methods=['DELETE'])
-    @rate_limit("20 per minute")
+    @limiter.limit("20/minute")
     def delete_file(short_id):
         correlation_id = None
         try:
@@ -157,7 +152,7 @@ def register_file_routes(app):
 
     # --- МАССОВОЕ УДАЛЕНИЕ ---
     @app.route('/api/delete/bulk', methods=['POST'])
-    @rate_limit("10 per minute")
+    @limiter.limit("10/minute")
     def delete_files_bulk():
         correlation_id = None
         try:

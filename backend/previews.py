@@ -6,6 +6,7 @@ import os
 import base64
 import logging
 from flask import request, jsonify, session, send_file
+from backend.extensions import limiter
 from datetime import datetime
 
 from .config import UPLOAD_FOLDER
@@ -17,14 +18,7 @@ from .config_constants import RATE_LIMIT_PREVIEW
 
 def register_preview_routes(app):
     logger = logging.getLogger(__name__)
-    
-    limiter = app.extensions.get('limiter')
-    
-    def rate_limit(limit_string):
-        if limiter:
-            return limiter.limit(limit_string)
-        return lambda f: f
-    
+
     def error_response(message, status_code, correlation_id=None):
         from flask import jsonify
         from backend.utils import get_or_create_correlation_id
@@ -41,7 +35,7 @@ def register_preview_routes(app):
 
     # --- ПРЕВЬЮ КАК JSON (LEGACY) ---
     @app.route('/api/preview/<short_id>')
-    @rate_limit(RATE_LIMIT_PREVIEW)
+    @limiter.limit("60/minute") 
     def get_file_preview(short_id):
         correlation_id = None
         try:
@@ -86,7 +80,7 @@ def register_preview_routes(app):
     # ... existing code ...
 
     @app.route('/api/preview-image/<short_id>')
-    @rate_limit(RATE_LIMIT_PREVIEW)
+    @limiter.limit("60/minute") 
     def get_file_preview_image(short_id):
         correlation_id = None
         try:
@@ -160,7 +154,7 @@ def register_preview_routes(app):
 
     # --- ПАКЕТНАЯ ЗАГРУЗКА ПРЕВЬЮ ---
     @app.route('/api/previews/batch', methods=['POST'])
-    @rate_limit(RATE_LIMIT_PREVIEW)
+    @limiter.limit("60/minute") 
     def get_batch_previews():
         correlation_id = None
         try:
