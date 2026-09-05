@@ -18,6 +18,7 @@ flask_sessions/
 # Эти файлы слишком большие или содержат пользовательские данные
 /opt/filebrowser/data/uploads.db
 /opt/filebrowser/data/uploads/*
+/data/*
 # Если база лежит внутри проекта (на всякий случай)
 *.db
 *.sqlite3
