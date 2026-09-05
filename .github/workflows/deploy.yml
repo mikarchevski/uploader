@@ -67,11 +67,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH known_hosts
+      - name: Setup SSH config (disable host key checking)
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 600 ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          cat > ~/.ssh/config <<EOF
+          Host *
+              StrictHostKeyChecking no
+              UserKnownHostsFile /dev/null
+              LogLevel ERROR
+              ServerAliveInterval 60
+              ServerAliveCountMax 3
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Create Backup
         run: |
@@ -197,11 +205,19 @@ jobs:
     runs-on: self-hosted
     environment: production
     steps:
-      - name: Setup SSH known_hosts
+      - name: Setup SSH config (disable host key checking)
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 600 ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          cat > ~/.ssh/config <<EOF
+          Host *
+              StrictHostKeyChecking no
+              UserKnownHostsFile /dev/null
+              LogLevel ERROR
+              ServerAliveInterval 60
+              ServerAliveCountMax 3
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Restore Backup
         run: |
