@@ -1,5 +1,6 @@
 # backend/auth.py
 from flask import request, jsonify, session, redirect, url_for, render_template, current_app
+from backend.extensions import limiter
 import logging
 from .database import get_user_by_username, create_user, verify_password
 
@@ -7,15 +8,8 @@ def register_auth_routes(app):
     logger = logging.getLogger(__name__)
     client_logger = logging.getLogger('client_frontend')
     
-    limiter = app.extensions.get('limiter')
-    
-    def rate_limit(limit_string):
-        if limiter:
-            return limiter.limit(limit_string)
-        return lambda f: f
-
     @app.route('/login', methods=['GET', 'POST'])
-    @rate_limit("10 per minute")
+    @limiter.limit("5/minute")
     def login():
         if request.method == 'POST':
             is_register = request.form.get('register') == '1'
@@ -81,7 +75,7 @@ def register_auth_routes(app):
         return redirect('/login')
 
     @app.route('/api/login', methods=['POST'])
-    @rate_limit("5 per minute")
+    @limiter.limit("5/minute")
     def api_login():
         """Эндпоинт для мобильного приложения или AJAX"""
         data = request.get_json()

@@ -7,6 +7,7 @@ import logging
 import zipfile
 import io
 from flask import request, send_file, send_from_directory, session, abort
+from backend.extensions import limiter
 from datetime import datetime
 
 from .config import UPLOAD_FOLDER
@@ -16,13 +17,6 @@ from .utils import safe_join_paths, validate_folder_path
 
 def register_download_routes(app):
     logger = logging.getLogger(__name__)
-    
-    limiter = app.extensions.get('limiter')
-    
-    def rate_limit(limit_string):
-        if limiter:
-            return limiter.limit(limit_string)
-        return lambda f: f
     
     def error_response(message, status_code, correlation_id=None):
         from flask import jsonify
@@ -40,7 +34,7 @@ def register_download_routes(app):
 
     # --- СКАЧИВАНИЕ ПАПКИ КАК ZIP ---
     @app.route('/api/download/folder', methods=['GET'])
-    @rate_limit("5 per minute")
+    @limiter.limit("5/minute")
     def download_folder_zip():
         correlation_id = None
         try:
