@@ -46,6 +46,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
       - name: Compile check
         run: python -m compileall -q app.py backend check_config.py
@@ -66,6 +67,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup SSH known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
       - name: Create Backup
         run: |
           ssh ${{ secrets.PROD_HOST }} '
@@ -77,7 +84,7 @@ jobs:
 
       - name: Sync code to prod
         run: |
-          rsync -az --delete \
+          rsync -az --delete --timeout=60 \
             --exclude '.git' \
             --exclude 'venv/' \
             --exclude 'uploads/' \
@@ -110,8 +117,16 @@ jobs:
 
       - name: Basic Smoke Test
         run: |
-          curl -sf ${{ vars.PROD_URL }}/login -o /dev/null || { echo " Smoke test failed: /login"; exit 1; }
-          curl -sf ${{ vars.PROD_URL }}/ -o /dev/null || { echo "❌ Smoke test failed: /"; exit 1; }
+          curl -sf ${{ vars.PROD_URL }}/login -o /tmp/login.html || { 
+            echo "❌ Smoke test failed: /login"
+            curl -s ${{ vars.PROD_URL }}/login | head -50
+            exit 1 
+          }
+          curl -sf ${{ vars.PROD_URL }}/ -o /tmp/index.html || { 
+            echo "❌ Smoke test failed: /"
+            curl -s ${{ vars.PROD_URL }}/ | head -50
+            exit 1 
+          }
           echo "✅ Basic smoke test passed"
 
   # ═══════════════════════════════════════════════════════════
@@ -182,10 +197,20 @@ jobs:
     runs-on: self-hosted
     environment: production
     steps:
+      - name: Setup SSH known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
       - name: Restore Backup
         run: |
           ssh ${{ secrets.PROD_HOST }} '
             echo "⚠️ E2E TESTS FAILED! Initiating automatic rollback..."
+            if [ ! -d /opt/uploader/.bak ] || [ -z "$(ls -A /opt/uploader/.bak)" ]; then
+              echo "❌ Backup is missing or empty! Cannot rollback."
+              exit 1
+            fi
             rsync -az --delete /opt/uploader/.bak/ /opt/uploader/
             sudo systemctl restart uploader
             echo "✅ Rollback completed. Production restored to previous state."
