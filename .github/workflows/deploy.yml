@@ -155,6 +155,7 @@ jobs:
     timeout-minutes: 15
     
     env:
+      TESTING_MODE: true
       APP_URL: ${{ vars.PROD_URL }}
       TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
