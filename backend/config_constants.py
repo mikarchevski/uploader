@@ -36,6 +36,7 @@ if TESTING_MODE:
     RATE_LIMIT_PREVIEW = "1000 per minute"
     RATE_LIMIT_LIST_FILES = "10000 per minute"
     RATE_LIMIT_DOWNLOAD_FOLDER = "1000 per minute"
+    RATE_LIMIT_DOWNLOAD_BY_SHORT_ID = "1000 per minute"
 else:
     # Нормальные лимиты для продакшена
     RATE_LIMIT_LOGIN = "10 per minute"
@@ -47,6 +48,7 @@ else:
     RATE_LIMIT_PREVIEW = "60 per minute"
     RATE_LIMIT_LIST_FILES = "600 per minute"
     RATE_LIMIT_DOWNLOAD_FOLDER = "5 per minute"
+    RATE_LIMIT_DOWNLOAD_BY_SHORT_ID = "60 per minute"
 
 # === СЕССИИ ===
 SESSION_LIFETIME_DAYS = 30

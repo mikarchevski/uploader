@@ -5,7 +5,7 @@ import os
 import logging
 from flask import request, jsonify, session
 from werkzeug.utils import secure_filename # <-- Добавлено для безопасности имен (Уязвимость №14)
-from backend.extensions import limiter     # <-- ИМПОРТ LIMITER
+   # <-- ИМПОРТ LIMITER
 from backend.utils import compute_file_hash 
 from datetime import datetime
 
@@ -19,12 +19,7 @@ def register_upload_routes(app):
     logger = logging.getLogger(__name__)
     client_logger = logging.getLogger('client_frontend')
     
-    limiter = app.extensions.get('limiter')
-    
-    def rate_limit(limit_string):
-        if limiter:
-            return limiter.limit(limit_string)
-        return lambda f: f
+    from backend.extensions import limiter  
     
     def error_response(message, status_code, correlation_id=None):
         from flask import jsonify, make_response
@@ -47,7 +42,7 @@ def register_upload_routes(app):
         # --- ПРОВЕРКА СУЩЕСТВОВАНИЯ ФАЙЛА ---
         # --- ПРОВЕРКА СУЩЕСТВОВАНИЯ ФАЙЛА ---
     @app.route('/check', methods=['GET'])
-    @limiter.limitf("30/minute")
+    @limiter.limit(RATE_LIMIT_CHECK_FILE)
     def check_file_exists():
         from flask import Response
         import json
@@ -113,7 +108,7 @@ def register_upload_routes(app):
 
         # --- ЗАГРУЗКА ФАЙЛА ---
     @app.route('/upload', methods=['POST'])
-    @limiter.limit("1000/minute") 
+    @limiter.limit(RATE_LIMIT_UPLOAD) 
     def upload_file():
         correlation_id = None
         try:

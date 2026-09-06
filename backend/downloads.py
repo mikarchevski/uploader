@@ -12,6 +12,7 @@ from datetime import datetime
 from .config import UPLOAD_FOLDER
 from .database import get_file_by_short_id, increment_download_count, get_files_in_folder
 from .utils import safe_join_paths, validate_folder_path
+from .config_constants import RATE_LIMIT_DOWNLOAD_FOLDER, RATE_LIMIT_DOWNLOAD_BY_SHORT_ID
 
 
 def register_download_routes(app):
@@ -32,7 +33,7 @@ def register_download_routes(app):
 
     # --- СКАЧИВАНИЕ ПАПКИ КАК ZIP ---
     @app.route('/api/download/folder', methods=['GET'])
-    @limiter.limit("5/minute")
+    @limiter.limit(RATE_LIMIT_DOWNLOAD_FOLDER)
     def download_folder_zip():
         correlation_id = None
         try:
@@ -131,10 +132,8 @@ def register_download_routes(app):
             return error_response('Failed to create archive', 500, correlation_id)
 
         # --- СКАЧИВАНИЕ ПО SHORT_ID ---
-        # --- СКАЧИВАНИЕ ПО SHORT_ID ---
-        # --- СКАЧИВАНИЕ ПО SHORT_ID ---
     @app.route('/d/<short_id>', methods=['GET'])
-    @limiter.limit("60/minute")
+    @limiter.limit(RATE_LIMIT_DOWNLOAD_BY_SHORT_ID)
     def download_by_short_id(short_id):
         correlation_id = None
         try:
