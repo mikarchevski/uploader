@@ -51,8 +51,10 @@ jobs:
       - name: Compile check
         run: python -m compileall -q app.py backend check_config.py
 
+ 
+
   # ═══════════════════════════════════════════════════════════
-  # 2. ДЕПЛОЙ (Только для main, только если lint/compile прошли)
+  # 3. ДЕПЛОЙ (Только для main, только если lint/compile/test прошли)
   # ═══════════════════════════════════════════════════════════
   deploy:
     needs: [lint, compile-check]
@@ -144,7 +146,7 @@ jobs:
           echo "✅ Basic smoke test passed"
 
   # ═══════════════════════════════════════════════════════════
-  # 3. E2E ТЕСТЫ (Проверяем реальный продакшн после деплоя)
+  # 4. E2E ТЕСТЫ (Проверяем реальный продакшн после деплоя)
   # ══════════════════════════════════════════════════════════
   e2e:
     needs: deploy
@@ -153,6 +155,7 @@ jobs:
     timeout-minutes: 15
     
     env:
+      TESTING_MODE: true
       APP_URL: ${{ vars.PROD_URL }}
       TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
@@ -169,6 +172,13 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
+      - name: Create .env file for QA tests with testing mode
+        run: |
+          echo "TESTING_MODE=true" >> .env
+          echo "APP_URL=${{ env.APP_URL }}" >> .env
+          echo "TEST_USERNAME=${{ env.TEST_USERNAME }}" >> .env
+          echo "TEST_PASSWORD=${{ env.TEST_PASSWORD }}" >> .env
+          
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -184,7 +194,9 @@ jobs:
         run: playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: pytest -v --alluredir=allure-results --browser=chromium
+        run: |
+          # Ensure testing mode is set for the tests
+          TESTING_MODE=true pytest -v --alluredir=allure-results --browser=chromium
 
       - name: Upload Allure results
         if: always()
@@ -203,7 +215,7 @@ jobs:
           retention-days: 7
 
   # ═══════════════════════════════════════════════════════════
-  # 4. АВТОМАТИЧЕСКИЙ ОТКАТ (Только если E2E упали)
+  # 5. АВТОМАТИЧЕСКИЙ ОТКАТ (Только если E2E упали)
   # ══════════════════════════════════════════════════════════
   rollback:
     needs: [deploy, e2e]
