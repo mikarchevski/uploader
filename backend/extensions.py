@@ -1,6 +1,8 @@
 import os
+from flask import request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+
 
 def get_rate_limits():
     """Возвращает лимиты в зависимости от режима"""
@@ -37,10 +39,22 @@ def get_rate_limits():
 
 limits = get_rate_limits()
 
-# Создаем глобальный экземпляр с динамическими лимитами
+# 1. Создаем экземпляр лимитера (ОБРАТИТЕ ВНИМАНИЕ: здесь НЕТ request_filter)
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri="memory://",
     default_limits=limits['default_limits'],
     strategy="fixed-window",
 )
+
+# 2. Правильно применяем декоратор request_filter ПОСЛЕ создания объекта limiter
+@limiter.request_filter
+def bypass_test_limits():
+    """
+    Если запрос содержит правильный токен, лимиты не применяются.
+    Это безопасно, так как токен хранится только в GitHub Secrets.
+    """
+    bypass_token = os.getenv("E2E_BYPASS_TOKEN", "")
+    if bypass_token and request.headers.get("X-E2E-Bypass-Token") == bypass_token:
+        return True  # Пропустить без проверки лимитов
+    return False
