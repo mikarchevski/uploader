@@ -2,7 +2,11 @@
 """
 Константы конфигурации для бэкенда
 """
+import os
 import zipfile
+
+TESTING_MODE = os.environ.get('TESTING_MODE', '').lower() == 'true'
+
 
 # === ПАГИНАЦИЯ ===
 DEFAULT_PAGE_SIZE = 20
@@ -21,15 +25,28 @@ PREVIEW_CACHE_MAX_AGE = 86400  # seconds (24 hours)
 FFMPEG_TIMEOUT = 30  # seconds
 
 # === RATE LIMITING ===
-RATE_LIMIT_LOGIN = "10 per minute"
-RATE_LIMIT_API_LOGIN = "5 per minute"
-RATE_LIMIT_UPLOAD = "1000 per minute"
-RATE_LIMIT_DELETE = "20 per minute"
-RATE_LIMIT_BULK_DELETE = "10 per minute"
-RATE_LIMIT_CHECK_FILE = "30 per minute"
-RATE_LIMIT_PREVIEW = "60 per minute"
-RATE_LIMIT_LIST_FILES = "600 per minute"
-RATE_LIMIT_DOWNLOAD_FOLDER = "5 per minute"
+if TESTING_MODE:
+    # Лимиты для тестирования
+    RATE_LIMIT_LOGIN = "1000 per minute"
+    RATE_LIMIT_API_LOGIN = "1000 per minute" 
+    RATE_LIMIT_UPLOAD = "10000 per minute"
+    RATE_LIMIT_DELETE = "1000 per minute"
+    RATE_LIMIT_BULK_DELETE = "1000 per minute"
+    RATE_LIMIT_CHECK_FILE = "1000 per minute"
+    RATE_LIMIT_PREVIEW = "1000 per minute"
+    RATE_LIMIT_LIST_FILES = "10000 per minute"
+    RATE_LIMIT_DOWNLOAD_FOLDER = "1000 per minute"
+else:
+    # Нормальные лимиты для продакшена
+    RATE_LIMIT_LOGIN = "10 per minute"
+    RATE_LIMIT_API_LOGIN = "5 per minute"
+    RATE_LIMIT_UPLOAD = "1000 per minute"
+    RATE_LIMIT_DELETE = "20 per minute"
+    RATE_LIMIT_BULK_DELETE = "10 per minute"
+    RATE_LIMIT_CHECK_FILE = "30 per minute"
+    RATE_LIMIT_PREVIEW = "60 per minute"
+    RATE_LIMIT_LIST_FILES = "600 per minute"
+    RATE_LIMIT_DOWNLOAD_FOLDER = "5 per minute"
 
 # === СЕССИИ ===
 SESSION_LIFETIME_DAYS = 30

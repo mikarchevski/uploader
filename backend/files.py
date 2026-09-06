@@ -21,7 +21,7 @@ def register_file_routes(app):
     Регистрирует только роуты для списка файлов и удаления.
     Остальные роуты перенесены в отдельные модули:
     - uploads.py: /check, /upload
-    - downloads.py: /api/download/folder, /d/<short_id>, /downloads/...
+    - downloads.py: /api/download/folder, /d/<short_id>
     - previews.py: /api/preview/..., /api/preview-image/..., /api/previews/batch
     """
     logger = logging.getLogger(__name__)

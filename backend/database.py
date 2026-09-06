@@ -369,7 +369,7 @@ def get_unique_name_by_hash(file_hash):
         row = c.fetchone()
         return row['unique_name'] if row else None
     except Exception as e:
-        logger.error(f"Error getting unique_name by hash: {e}")
+        logger.error(f"Error getting file by hash: {e}")
         return None
     finally:
         if conn:

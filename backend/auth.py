@@ -9,7 +9,7 @@ def register_auth_routes(app):
     client_logger = logging.getLogger('client_frontend')
     
     @app.route('/login', methods=['GET', 'POST'])
-    @limiter.limit("5/minute")
+    @limiter.limit("50/minute")
     def login():
         if request.method == 'POST':
             is_register = request.form.get('register') == '1'
@@ -75,7 +75,7 @@ def register_auth_routes(app):
         return redirect('/login')
 
     @app.route('/api/login', methods=['POST'])
-    @limiter.limit("5/minute")
+    @limiter.limit("50/minute")
     def api_login():
         """Эндпоинт для мобильного приложения или AJAX"""
         data = request.get_json()

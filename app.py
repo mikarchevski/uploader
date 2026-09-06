@@ -204,7 +204,9 @@ from backend import create_app as backend_create_app
     
 #     return app
 def create_app():
-
+    if os.environ.get('GITHUB_ACTIONS') == 'true' or os.environ.get('TESTING_MODE'):
+        os.environ['TESTING_MODE'] = 'true'
+    
     # Проверяем конфигурацию перед созданием приложения
     from check_config import check_configuration
     if not check_configuration():
