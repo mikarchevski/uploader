@@ -6,6 +6,8 @@ from flask import request, jsonify, session
 from backend.extensions import limiter
 from backend.config_constants import MAX_PAGE_SIZE
 from datetime import datetime
+from backend.config_constants import RATE_LIMIT_LOGIN
+
 
 from .config import UPLOAD_FOLDER, DB_PATH
 from .database import (
