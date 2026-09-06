@@ -114,6 +114,7 @@ jobs:
         run: |
           ssh ${{ secrets.PROD_HOST }} '
             cd /opt/uploader &&
+            export TESTING_MODE=true &&
             python3 -m venv venv &&
             source venv/bin/activate &&
             pip install --upgrade pip -q &&
