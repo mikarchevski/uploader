@@ -8,6 +8,38 @@
 
 ```bash
 pip install -r requirements.txt
+```
+
+.env
+```
+# TESTING_MODE=true
+
+# === БЕЗОПАСНОСТЬ И ТЕСТИРОВАНИЕ ===
+# Секретный ключ для шифрования сессий
+# Сгенерируйте уникальный ключ командой: python3 generate_secret_key.py
+SECRET_KEY=ваш_уникальный_секретный_ключ
+
+ Токен для обхода лимитов в E2E-тестах. 
+# Должен совпадать с E2E_BYPASS_TOKEN в GitHub Secrets и в conftest.py тестов.
+# Если установлен, запросы с заголовком "X-E2E-Bypass-Token" не учитываются лимитером.
+E2E_BYPASS_TOKEN=my_super_secret_local_token_123
+
+# === НАСТРОЙКИ ПРИЛОЖЕНИЯ ===
+FLASK_ENV=development
+FLASK_DEBUG=1
+
+# === ПУТИ К ФАЙЛАМ ===
+UPLOAD_FOLDER=./uploads
+DB_PATH=./data/uploads.db
+
+# === КЭШ ПРЕВЬЮ (вне проекта) ===
+PREVIEW_CACHE_FOLDER=./data/previews
+
+# === ПРОДАКШЕН НАСТРОЙКИ (раскомментируйте при деплое) ===
+# FLASK_ENV=production
+# FLASK_DEBUG=0
+# SESSION_COOKIE_SECURE=True
+```
 
 
 # Rate Limiting Configuration
