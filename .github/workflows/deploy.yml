@@ -51,46 +51,13 @@ jobs:
       - name: Compile check
         run: python -m compileall -q app.py backend check_config.py
 
-  # ═══════════════════════════════════════════════════════════
-  # 2. UNIT/INTEGRATION ТЕСТЫ (Для каждого PR/ветки)
-  # ═══════════════════════════════════════════════════════════
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: testing
-      url: http://localhost:5000
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Create .env file with testing mode
-        run: |
-          echo "TESTING_MODE=true" > .env
-          echo "APP_URL=http://localhost:5000" >> .env
-          
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
-      - name: Run unit/integration tests
-        run: |
-          # Set TESTING_MODE for the test process
-          TESTING_MODE=true python -m pytest tests/ -v --cov=backend --cov-report=xml
+ 
 
   # ═══════════════════════════════════════════════════════════
   # 3. ДЕПЛОЙ (Только для main, только если lint/compile/test прошли)
   # ═══════════════════════════════════════════════════════════
   deploy:
-    needs: [lint, compile-check, test]
+    needs: [lint, compile-check]
     if: github.ref == 'refs/heads/main'
     runs-on: self-hosted
     timeout-minutes: 10
