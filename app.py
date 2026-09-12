@@ -16,6 +16,9 @@ except ImportError:
     pass
 
 # --- НАЧАЛО БЛОКА ЛОГИРОВАНИЯ ---
+import logging
+from logging.handlers import RotatingFileHandler
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Создаем файлы логов, если их нет
@@ -23,29 +26,52 @@ server_log_path = os.path.join(base_dir, 'web_server.log')
 client_log_path = os.path.join(base_dir, 'web_client.log')
 
 # Настраиваем формат
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
-# Логгер для сервера
-server_handler = logging.FileHandler(server_log_path)
+# === РОТАЦИЯ ЛОГОВ ===
+# Параметры:
+# - maxBytes=10*1024*1024  → максимум 10 МБ на один файл
+# - backupCount=5          → хранить 5 старых файлов (итого до 60 МБ)
+# - encoding='utf-8'       → корректная работа с кириллицей
+
+server_handler = RotatingFileHandler(
+    server_log_path,
+    maxBytes=10 * 1024 * 1024,
+    backupCount=5,
+    encoding='utf-8'
+)
 server_handler.setFormatter(formatter)
 server_handler.setLevel(logging.INFO)
 
-# Логгер для клиента
-client_handler = logging.FileHandler(client_log_path)
-client_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+client_handler = RotatingFileHandler(
+    client_log_path,
+    maxBytes=10 * 1024 * 1024,
+    backupCount=5,
+    encoding='utf-8'
+)
+client_handler.setFormatter(
+    logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
+                      datefmt='%Y-%m-%d %H:%M:%S')
+)
 client_handler.setLevel(logging.INFO)
 
 # Глобальные объекты логгеров
 server_logger = logging.getLogger('server_backend')
+# Очищаем старые хендлеры, чтобы избежать дублирования логов при перезапуске
+server_logger.handlers.clear()
 server_logger.addHandler(server_handler)
 server_logger.setLevel(logging.INFO)
 
 client_logger = logging.getLogger('client_frontend')
+client_logger.handlers.clear()
 client_logger.addHandler(client_handler)
 client_logger.setLevel(logging.INFO)
 
 # Пишем первую запись сразу
-server_logger.info("--- FLASK SERVER STARTED & LOGGING TEST ---")
+server_logger.info("--- FLASK SERVER STARTED & LOGGING TEST (with rotation) ---")
 # --- КОНЕЦ БЛОКА ЛОГИРОВАНИЯ ---
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
