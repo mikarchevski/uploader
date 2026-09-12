@@ -88,13 +88,13 @@ def load_preview_from_cache(cache_path):
 def get_video_preview(filepath, ext):
     """
     Генерирует превью для видео файла с помощью ffmpeg.
-    Извлекает первый кадр и возвращает его как base64.
-    Требует установленного ffmpeg в системе.
     """
+    start_time = time.time()  # ✅ Засекаем время
+    filename = os.path.basename(filepath)
+    
     try:
         import subprocess
         
-        # ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: убеждаемся, что путь безопасен
         real_filepath = os.path.realpath(filepath)
         real_upload = os.path.realpath(UPLOAD_FOLDER)
         
@@ -106,32 +106,42 @@ def get_video_preview(filepath, ext):
         cache_path = get_cached_preview_path(filepath)
         cached = load_preview_from_cache(cache_path)
         if cached:
-            logger.debug(f"[PREVIEW] Using cached preview for video: {os.path.basename(filepath)}")
+            logger.debug(f"[PREVIEW] Using cached preview for video: {filename}")
             return cached
         
-        # Создаем временный файл для кадра (внутри UPLOAD_FOLDER для безопасности)
-        temp_img = os.path.join(UPLOAD_FOLDER, os.path.basename(filepath) + '_thumb.jpg')
+        # ✅ НОВЫЙ ЛОГ: начинаем генерацию (INFO, потому что это дорогая операция)
+        file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+        logger.info(
+            f"[PREVIEW] Starting video thumbnail generation via ffmpeg | "
+            f"File: {filename} | Size: {file_size_mb:.1f}MB | Ext: {ext}"
+        )
         
-        # Извлекаем первый кадр через ffmpeg
+        temp_img = os.path.join(UPLOAD_FOLDER, filename + '_thumb.jpg')
+        
         cmd = [
             'ffmpeg', '-i', filepath,
-            '-vf', 'select=eq(n\,0)',  # Первый кадр
+            '-vf', 'select=eq(n\\,0)',
             '-vframes', '1',
-            '-q:v', '2',  # Качество JPEG (2 = высокое качество)
-            '-y',  # Перезаписывать файл если существует
+            '-q:v', '2',
+            '-y',
             temp_img
         ]
         
         result = subprocess.run(cmd, capture_output=True, timeout=FFMPEG_TIMEOUT)
         
         if result.returncode != 0 or not os.path.exists(temp_img):
-            logger.warning(f"[PREVIEW] FFmpeg failed for {filepath}: {result.stderr.decode()[:200]}")
+            stderr_msg = result.stderr.decode()[:200] if result.stderr else 'no stderr'
+            # ✅ УЛУЧШЕННЫЙ ЛОГ: добавляем время и детали ошибки
+            elapsed_ms = (time.time() - start_time) * 1000
+            logger.warning(
+                f"[PREVIEW] FFmpeg failed for {filename} after {elapsed_ms:.0f}ms | "
+                f"Exit code: {result.returncode} | Error: {stderr_msg}"
+            )
             return None
         
         # Читаем изображение и оптимизируем размер
         img = Image.open(temp_img)
         
-        # Оптимизация: уменьшаем размер до 300px по большей стороне
         max_size = PREVIEW_IMAGE_SIZE
         width, height = img.size
         if width > height:
@@ -143,46 +153,67 @@ def get_video_preview(filepath, ext):
         
         img = img.resize((new_width, new_height), Image.LANCZOS)
         
-        # Сохраняем оптимизированное изображение
         buffer = io.BytesIO()
         img.save(buffer, format="JPEG", quality=PREVIEW_JPEG_QUALITY, optimize=True)
         encoded_string = base64.b64encode(buffer.getvalue()).decode('utf-8')
         
         preview_data = f"data:image/jpeg;base64,{encoded_string}"
         
-        # Сохраняем в кэш
         save_preview_to_cache(preview_data, cache_path)
         
-        # Удаляем временный файл
         if os.path.exists(temp_img):
             os.remove(temp_img)
         
-        logger.debug(f"[PREVIEW] Generated and cached for video {ext}: {os.path.basename(filepath)}")
+        # ✅ НОВЫЙ ЛОГ: успешная генерация с замером времени
+        elapsed_ms = (time.time() - start_time) * 1000
+        preview_size_kb = len(encoded_string) * 3 / 4 / 1024  # Примерный размер в КБ
+        
+        if elapsed_ms > 5000:  # Больше 5 секунд — предупреждение
+            logger.warning(
+                f"[PREVIEW SLOW] Video thumbnail took {elapsed_ms:.0f}ms | "
+                f"File: {filename} | Size: {file_size_mb:.1f}MB | "
+                f"Preview: {preview_size_kb:.0f}KB"
+            )
+        else:
+            logger.info(
+                f"[PREVIEW] Video thumbnail generated in {elapsed_ms:.0f}ms | "
+                f"File: {filename} | Preview: {preview_size_kb:.0f}KB"
+            )
+        
         return preview_data
         
     except FileNotFoundError:
         logger.error("[PREVIEW] ffmpeg not found in system PATH. Install ffmpeg first.")
         return None
     except subprocess.TimeoutExpired:
-        logger.error(f"[PREVIEW] FFmpeg timeout for {filepath}")
+        elapsed_ms = (time.time() - start_time) * 1000
+        # ✅ УЛУЧШЕННЫЙ ЛОГ: добавляем время ожидания
+        logger.error(
+            f"[PREVIEW] FFmpeg timeout after {elapsed_ms:.0f}ms "
+            f"(limit: {FFMPEG_TIMEOUT}s) for {filename}"
+        )
         if os.path.exists(temp_img):
             os.remove(temp_img)
         return None
     except Exception as e:
-        logger.error(f"[PREVIEW] Video preview error for {filepath}: {e}")
+        elapsed_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"[PREVIEW] Video preview error after {elapsed_ms:.0f}ms "
+            f"for {filename}: {e}"
+        )
         import traceback
         logger.error(traceback.format_exc())
         if os.path.exists(temp_img):
             os.remove(temp_img)
         return None
-
 def get_preview_data(filepath, ext):
     """
     Возвращает данные для превью файла с кэшированием.
-    Возвращает словарь {'has_preview': bool, 'preview': str | None}
     """
+    start_time = time.time()  # ✅ Засекаем время
+    filename = os.path.basename(filepath)
     
-    # ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА безопасности пути
+    # Проверка безопасности пути
     try:
         real_filepath = os.path.realpath(filepath)
         real_upload = os.path.realpath(UPLOAD_FOLDER)
@@ -194,25 +225,36 @@ def get_preview_data(filepath, ext):
         logger.error(f"[PREVIEW] Path validation error: {e}")
         return {'has_preview': False}
     
-    # Проверяем кэш для изображений
+    # Проверяем кэш
     cache_path = get_cached_preview_path(filepath)
     cached = load_preview_from_cache(cache_path)
     if cached:
-        logger.debug(f"[PREVIEW] Using cached preview: {os.path.basename(filepath)}")
+        logger.debug(f"[PREVIEW] Using cached preview: {filename}")
         return {
             'has_preview': True,
             'preview': cached
         }
     
+    # ✅ НОВЫЙ ЛОГ: кэш промахнулся, начинаем генерацию
+    logger.debug(f"[PREVIEW] Cache miss, generating preview for: {filename} ({ext})")
+    
     # Для обычных изображений
     if ext in ('.jpg', '.jpeg', '.png', '.webp'):
         try:
+            file_size_kb = os.path.getsize(filepath) / 1024
+            
+            # ✅ НОВЫЙ ЛОГ: предупреждение для больших изображений
+            if file_size_kb > 10240:  # Больше 10 МБ
+                logger.warning(
+                    f"[PREVIEW] Large image detected: {filename} "
+                    f"({file_size_kb / 1024:.1f}MB) — generation may be slow"
+                )
+            
             with open(filepath, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
                 mime_type = f"image/{ext[1:]}"
                 preview_data = f"data:{mime_type};base64,{encoded_string}"
                 
-                # Сохраняем в кэш (конвертируем в JPEG для экономии места)
                 try:
                     img = Image.open(io.BytesIO(base64.b64decode(encoded_string)))
                     img = img.convert('RGB')
@@ -238,40 +280,58 @@ def get_preview_data(filepath, ext):
                 except Exception as cache_err:
                     logger.warning(f"[PREVIEW] Failed to cache image: {cache_err}")
                 
-                logger.debug(f"[PREVIEW] Generated for {ext} file: {os.path.basename(filepath)}")
+                elapsed_ms = (time.time() - start_time) * 1000
+                logger.debug(
+                    f"[PREVIEW] Generated for {ext} in {elapsed_ms:.0f}ms: {filename}"
+                )
                 return {
                     'has_preview': True,
                     'preview': preview_data
                 }
         except Exception as e:
-            logger.error(f"[PREVIEW] Failed to read image {filepath}: {e}")
+            logger.error(f"[PREVIEW] Failed to read image {filename}: {e}")
             return {'has_preview': False}
 
-    # Для SVG (возвращаем как есть, но с проверкой размера, без кэширования)
+    # Для SVG
     elif ext == '.svg':
         try:
             with open(filepath, "rb") as svg_file:
                 content = svg_file.read()
-                if len(content) > 1024 * 100: # Ограничение 100кб для безопасности
-                    logger.warning(f"[PREVIEW] SVG too large: {filepath}")
+                content_size_kb = len(content) / 1024
+                
+                if len(content) > 1024 * 100:
+                    # ✅ УЛУЧШЕННЫЙ ЛОГ: добавляем размер
+                    logger.warning(
+                        f"[PREVIEW] SVG skipped (too large): {filename} "
+                        f"({content_size_kb:.0f}KB > 100KB limit)"
+                    )
                     return {'has_preview': False}
                 
                 encoded_string = base64.b64encode(content).decode('utf-8')
+                logger.debug(f"[PREVIEW] SVG preview returned: {filename} ({content_size_kb:.0f}KB)")
                 return {
                     'has_preview': True,
                     'preview': f"data:image/svg+xml;base64,{encoded_string}"
                 }
         except Exception as e:
-            logger.error(f"[PREVIEW] Failed to read SVG {filepath}: {e}")
+            logger.error(f"[PREVIEW] Failed to read SVG {filename}: {e}")
             return {'has_preview': False}
 
-    # Для GIF — извлекаем первый кадр
+    # Для GIF
     elif ext == '.gif':
         try:
-            img = Image.open(filepath)
-            img.seek(0)  # Первый кадр
+            file_size_kb = os.path.getsize(filepath) / 1024
             
-            # Оптимизация: уменьшаем размер до 300px
+            # ✅ НОВЫЙ ЛОГ: предупреждение для больших GIF
+            if file_size_kb > 5120:  # Больше 5 МБ
+                logger.warning(
+                    f"[PREVIEW] Large GIF detected: {filename} "
+                    f"({file_size_kb / 1024:.1f}MB) — extracting first frame"
+                )
+            
+            img = Image.open(filepath)
+            img.seek(0)
+            
             max_size = PREVIEW_IMAGE_SIZE
             width, height = img.size
             if width > height:
@@ -282,7 +342,7 @@ def get_preview_data(filepath, ext):
                 new_width = int(width * (max_size / height))
             
             img = img.resize((new_width, new_height), Image.LANCZOS)
-            img = img.convert('RGB') # Убираем прозрачность
+            img = img.convert('RGB')
             
             buffer = io.BytesIO()
             img.save(buffer, format="JPEG", quality=PREVIEW_JPEG_QUALITY, optimize=True)
@@ -290,16 +350,18 @@ def get_preview_data(filepath, ext):
             
             preview_data = f"data:image/jpeg;base64,{encoded_string}"
             
-            # Сохраняем в кэш
             save_preview_to_cache(preview_data, cache_path)
             
-            logger.debug(f"[PREVIEW] Generated and cached for GIF: {os.path.basename(filepath)}")
+            elapsed_ms = (time.time() - start_time) * 1000
+            logger.debug(
+                f"[PREVIEW] GIF first frame extracted in {elapsed_ms:.0f}ms: {filename}"
+            )
             return {
                 'has_preview': True,
                 'preview': preview_data
             }
         except Exception as e:
-            logger.error(f"[PREVIEW] GIF preview error for {filepath}: {e}")
+            logger.error(f"[PREVIEW] GIF preview error for {filename}: {e}")
             return {'has_preview': False}
     
     # Для видео форматов
@@ -311,8 +373,12 @@ def get_preview_data(filepath, ext):
                 'preview': preview_data
             }
         else:
+            # ✅ НОВЫЙ ЛОГ: не удалось сгенерировать превью для видео
+            logger.warning(f"[PREVIEW] No preview generated for video: {filename} ({ext})")
             return {'has_preview': False}
     
     # Для других типов
     else:
+        # ✅ НОВЫЙ ЛОГ: неподдерживаемый формат
+        logger.debug(f"[PREVIEW] Unsupported format for preview: {ext} ({filename})")
         return {'has_preview': False}

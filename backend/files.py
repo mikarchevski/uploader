@@ -104,6 +104,9 @@ def register_file_routes(app):
                 'per_page': per_page,
                 'pages': (total_count + per_page - 1) // per_page
             }
+
+            logger.info(f"[API] Listed {len(files)} files for user {user_id} (page {page}, total {total_count}) | Folder: '{folder_path or 'root'}' | CorrelationID: {correlation_id}")
+
             
             return jsonify(response_data)
             
@@ -126,6 +129,7 @@ def register_file_routes(app):
             
             file_data = get_file_by_short_id(short_id)
             if not file_data:
+                logger.warning(f"[DELETE] File not found: {short_id} | User: {user_id} | CorrelationID: {correlation_id}")
                 return error_response('File not found', 404, correlation_id)
             
             if file_data.get('owner_id') != user_id:
@@ -144,7 +148,8 @@ def register_file_routes(app):
             
             logger.info(f"[DELETE] File deleted: {file_data['original_filename']} ({short_id}) | User: {user_id}")
             client_logger.info(f"File deleted: {file_data['original_filename']}")
-            
+            logger.info(f"[DELETE] Successfully deleted file: {short_id} | User: {user_id} | Filename: {file_data.get('original_filename')} | CorrelationID: {correlation_id}")
+
             return jsonify({'success': True, 'message': 'File deleted'})
             
         except Exception as e:
@@ -172,6 +177,8 @@ def register_file_routes(app):
             # Поддержка двух форматов: по short_ids или по folder_path
             short_ids = data.get('short_ids')
             folder_path = data.get('folder_path')
+            logger.info(f"[BULK DELETE] Request received | User: {user_id} | Short IDs: {len(short_ids) if short_ids else 0} | Folder: '{folder_path}' | CorrelationID: {correlation_id}")
+
             
             deleted_count = 0
             errors = []
@@ -191,6 +198,8 @@ def register_file_routes(app):
                 files_in_folder = get_files_in_folder(user_id, folder_path, include_subfolders=True)
                 
                 if not files_in_folder:
+                    logger.info(f"[BULK DELETE] Folder is empty: '{folder_path}' | User: {user_id} | CorrelationID: {correlation_id}")
+
                     return jsonify({
                         'success': True,
                         'deleted_count': 0,
@@ -223,7 +232,7 @@ def register_file_routes(app):
                         logger.error(f"[BULK DELETE] Error deleting {file_info.get('short_id')}: {e}")
                         errors.append({'short_id': file_info.get('short_id'), 'error': str(e)})
                 
-                logger.info(f"[BULK DELETE] Folder '{folder_path}' deleted: {deleted_count} files, {len(errors)} errors")
+                logger.info(f"[BULK DELETE] Folder deleted successfully: '{folder_path}' | Deleted: {deleted_count} files | Errors: {len(errors)} | User: {user_id} | CorrelationID: {correlation_id}")
                 client_logger.info(f"Folder deleted: {folder_path} ({deleted_count} files)")
             
             # Удаление по short_ids
@@ -239,10 +248,12 @@ def register_file_routes(app):
                         file_data = get_file_by_short_id(short_id)
                         
                         if not file_data:
+                            logger.warning(f"[BULK DELETE] File not found: {short_id} | User: {user_id} | CorrelationID: {correlation_id}")
                             errors.append({'short_id': short_id, 'error': 'Not found'})
                             continue
                         
                         if file_data.get('owner_id') != user_id:
+                            logger.warning(f"[BULK DELETE] Access denied for file: {short_id} | User: {user_id} | CorrelationID: {correlation_id}")
                             errors.append({'short_id': short_id, 'error': 'Access denied'})
                             continue
                         
@@ -265,7 +276,9 @@ def register_file_routes(app):
             
             else:
                 return error_response('Missing short_ids or folder_path', 400, correlation_id)
-            
+
+            logger.info(f"[BULK DELETE] Completed | Deleted: {deleted_count}/{len(short_ids)} files | Errors: {len(errors)} | User: {user_id} | CorrelationID: {correlation_id}")
+
             return jsonify({
                 'success': True,
                 'deleted_count': deleted_count,

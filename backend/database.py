@@ -32,18 +32,24 @@ def _get_cached_count(user_id):
     Returns:
         int или None если кэш отсутствует/устарел
     """
-    #global _files_count_cache
-    
     if user_id in _files_count_cache:
         cache_entry = _files_count_cache[user_id]
         age = datetime.now().timestamp() - cache_entry['timestamp']
         
         if age < _CACHE_TTL:
-            logger.debug(f"Using cached file count for user {user_id}: {cache_entry['count']}")
+            logger.debug(
+                f"[DB CACHE] HIT for user {user_id}: {cache_entry['count']} files "
+                f"(age: {age:.1f}s, TTL: {_CACHE_TTL}s)"
+            )
             return cache_entry['count']
         else:
-            # Кэш устарел
+            logger.debug(
+                f"[DB CACHE] EXPIRED for user {user_id}: "
+                f"age={age:.1f}s > TTL={_CACHE_TTL}s, will query DB"
+            )
             del _files_count_cache[user_id]
+    else:
+        logger.debug(f"[DB CACHE] MISS for user {user_id}: no cache entry exists")
     
     return None
 
@@ -154,39 +160,37 @@ def get_file_by_short_id(short_id):
     finally:
         if conn:
             conn.close()
-def insert_file(short_id, unique_name, original_filename, file_hash, file_size, owner_id=None, folder_path=''):
+def insert_file(short_id, unique_name, original_filename, file_hash, file_size, owner_id, folder_path=''):
     """
-    Добавляет новый файл в базу данных с явной транзакцией.
-    
-    Raises:
-        sqlite3.IntegrityError: Если short_id уже существует
-        Exception: При других ошибках БД
+    Добавляет запись о файле в базу данных.
     """
     conn = None
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # Явная транзакция
         c.execute('''
-            INSERT INTO files (short_id, unique_name, original_filename, file_hash, file_size, upload_date, owner_id, folder_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (short_id, unique_name, original_filename, file_hash, file_size, datetime.now().isoformat(), owner_id, folder_path))
+            INSERT INTO files (short_id, unique_name, original_filename, file_hash, 
+                             file_size, owner_id, folder_path, upload_date, download_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (short_id, unique_name, original_filename, file_hash, 
+              file_size, owner_id, folder_path, datetime.now().isoformat(), 0))
         
         conn.commit()
-        logger.debug(f"File inserted: {short_id}")
         
-        # Инвалидируем кэш количества файлов для этого пользователя
-        if owner_id:
-            _invalidate_count_cache(owner_id)
-    
-    except sqlite3.IntegrityError as e:
-        logger.error(f"Integrity error inserting file {short_id}: {e}")
-        if conn:
-            conn.rollback()
-        raise
+        # ✅ НОВЫЙ ЛОГ: успешная вставка
+        logger.info(
+            f"[DB INSERT] File record created: {short_id} | "
+            f"Owner: {owner_id}, Size: {file_size} bytes, Folder: '{folder_path}'"
+        )
+        
+        # ✅ Инвалидируем кэш для этого пользователя
+        if owner_id in _files_count_cache:
+            del _files_count_cache[owner_id]
+            logger.debug(f"[DB CACHE] Invalidated cache for user {owner_id} after file insert")
+        
     except Exception as e:
-        logger.error(f"Error inserting file {short_id}: {e}")
+        logger.error(f"[DB ERROR] Failed to insert file {short_id}: {e}")
         if conn:
             conn.rollback()
         raise
@@ -314,27 +318,36 @@ def verify_password(stored_hash, password):
 
 
 def delete_file_by_short_id(short_id):
-    """Удаляет запись о файле из БД с явной транзакцией."""
+    """
+    Удаляет запись о файле из базы данных.
+    """
     conn = None
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # Сначала получаем owner_id для инвалидации кэша
-        c.execute('SELECT owner_id FROM files WHERE short_id = ?', (short_id,))
-        row = c.fetchone()
-        owner_id = row[0] if row else None
+        # Получаем owner_id для инвалидации кэша
+        c.execute("SELECT owner_id FROM files WHERE short_id = ?", (short_id,))
+        result = c.fetchone()
         
-        c.execute('DELETE FROM files WHERE short_id = ?', (short_id,))
-        conn.commit()
-        logger.debug(f"File deleted from DB: {short_id}")
-        
-        # Инвалидируем кэш количества файлов
-        if owner_id:
-            _invalidate_count_cache(owner_id)
-    
+        if result:
+            owner_id = result[0]
+            
+            c.execute("DELETE FROM files WHERE short_id = ?", (short_id,))
+            conn.commit()
+            
+            # ✅ НОВЫЙ ЛОГ: успешное удаление
+            logger.info(f"[DB DELETE] File record deleted: {short_id} | Owner: {owner_id}")
+            
+            # Инвалидируем кэш
+            if owner_id in _files_count_cache:
+                del _files_count_cache[owner_id]
+                logger.debug(f"[DB CACHE] Invalidated cache for user {owner_id} after file delete")
+        else:
+            logger.warning(f"[DB DELETE] File not found in DB: {short_id}")
+            
     except Exception as e:
-        logger.error(f"Error deleting file {short_id} from DB: {e}")
+        logger.error(f"[DB ERROR] Failed to delete file {short_id}: {e}")
         if conn:
             conn.rollback()
         raise
@@ -560,32 +573,21 @@ def count_files_in_folder(user_id, folder_path, include_subfolders=False):
 
 # ... existing code ...
 
+import time  # Добавьте в начало файла, если ещё не импортирован
+
 def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', sort_order='DESC', folder_path=None):
     """
     Получает файлы с пагинацией и сортировкой с оптимизированным COUNT.
-    
-    Args:
-        user_id: ID пользователя
-        page: Номер страницы (начиная с 1)
-        per_page: Количество файлов на странице
-        sort_field: Поле для сортировки
-        sort_order: Порядок сортировки ('ASC' или 'DESC')
-        folder_path: Фильтр по папке (None = все файлы)
-    
-    Returns:
-        Кортеж (список файлов, общее количество)
     """
     from .config_constants import SORT_FIELD_MAPPING, SORT_ORDER_MAPPING
     
     conn = None
+    start_time = time.time()  # ✅ Засекаем время начала
+    
     try:
         offset = (page - 1) * per_page
         
-        # БЕЗОПАСНЫЙ маппинг: получаем реальное имя колонки из словаря
-        # Если передано неизвестное значение → используем default
         safe_sort_field = SORT_FIELD_MAPPING.get(sort_field, 'upload_date')
-        
-        # Безопасный маппинг порядка сортировки
         safe_sort_order = SORT_ORDER_MAPPING.get(str(sort_order).upper(), 'DESC')
         
         conn = sqlite3.connect(DB_PATH)
@@ -593,7 +595,6 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
         c = conn.cursor()
         
         if folder_path:
-            # Фильтрация по папке (включая подпапки)
             base_query = '''
                 FROM files 
                 WHERE owner_id = ? AND (folder_path = ? OR folder_path LIKE ?)
@@ -609,23 +610,33 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
             data_params = (user_id, per_page, offset)
         
         # ОПТИМИЗАЦИЯ: Проверяем кэш для общего количества
-        # Используем кэш ТОЛЬКО если нет фильтра по папке (для простоты)
+        cache_used = False
         if not folder_path:
             cached_count = _get_cached_count(user_id)
             if cached_count is not None:
                 total_count = cached_count
+                cache_used = True
+                # ✅ НОВЫЙ ЛОГ: кэш использован
+                logger.debug(
+                    f"[DB QUERY] Using cached count for user {user_id}: {total_count} files"
+                )
             else:
-                # Кэша нет - делаем запрос и сохраняем в кэш
+                # ✅ НОВЫЙ ЛОГ: кэш не использован, выполняем запрос
+                logger.debug(
+                    f"[DB QUERY] Cache miss for user {user_id}, executing COUNT(*) query"
+                )
                 c.execute(f'SELECT COUNT(*) {base_query}', count_params)
                 total_count = c.fetchone()[0]
                 _set_cached_count(user_id, total_count)
         else:
-            # Для фильтров по папке всегда делаем запрос (кэш сложнее инвалидировать)
+            # Для фильтров по папке всегда делаем запрос
+            logger.debug(
+                f"[DB QUERY] Folder filter active, executing COUNT(*) for user {user_id}, folder: '{folder_path}'"
+            )
             c.execute(f'SELECT COUNT(*) {base_query}', count_params)
             total_count = c.fetchone()[0]
         
         # БЕЗОПАСНАЯ сборка запроса
-        # safe_sort_field и safe_sort_order гарантированно содержат только разрешённые значения
         query = f'''
             SELECT short_id, original_filename, file_size, upload_date, download_count, folder_path
             {base_query}
@@ -635,10 +646,25 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
         c.execute(query, data_params)
         files = [dict(row) for row in c.fetchall()]
         
+        # ✅ НОВЫЙ ЛОГ: замер времени выполнения
+        elapsed_ms = (time.time() - start_time) * 1000
+        
+        if elapsed_ms > 100:  # Если запрос занял больше 100 мс
+            logger.warning(
+                f"[DB SLOW QUERY] get_files_paginated took {elapsed_ms:.2f}ms | "
+                f"User: {user_id}, Page: {page}, Total: {total_count}, "
+                f"Cache used: {cache_used}, Folder: '{folder_path or 'root'}'"
+            )
+        else:
+            logger.debug(
+                f"[DB QUERY] get_files_paginated completed in {elapsed_ms:.2f}ms | "
+                f"User: {user_id}, Files: {len(files)}, Cache: {cache_used}"
+            )
+        
         return files, total_count
     
     except Exception as e:
-        logger.error(f"Error getting paginated files: {e}")
+        logger.error(f"[DB ERROR] Error getting paginated files: {e}")
         if conn:
             conn.rollback()
         return [], 0
