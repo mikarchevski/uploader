@@ -133,7 +133,8 @@
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
         </button>
-        <div id="breadcrumbs" data-testid="breadcrumbs" style="padding: 10px 20px; font-size: 0.9rem; color: var(--text-secondary);">
+        <div id="breadcrumbs" data-testid="breadcrumbs"
+            style="padding: 10px 20px; font-size: 0.9rem; color: var(--text-secondary);">
             <!-- Сюда JS будет вставлять навигацию -->
         </div>
         <!-- === МЕНЮ ПОЛЬЗОВАТЕЛЯ (ПРАВЫЙ ВЕРХНИЙ УГОЛ) === -->
@@ -203,11 +204,14 @@
 
                 <div class="action-buttons" data-testid="action-buttons">
                     <!-- Кнопки для одиночного действия -->
-                    <button id="btnDownload" class="action-btn btn-download-small" data-testid="btn-download">⬇ Скачать</button>
-                    <button id="btnCopyLink" class="action-btn btn-copy-small" data-testid="btn-copy-link">📋 Ссылка</button>
+                    <button id="btnDownload" class="action-btn btn-download-small" data-testid="btn-download">⬇
+                        Скачать</button>
+                    <button id="btnCopyLink" class="action-btn btn-copy-small" data-testid="btn-copy-link">📋
+                        Ссылка</button>
 
                     <!-- Кнопка удаления (универсальная) -->
-                    <button id="btnDelete" class="action-btn btn-delete-small" data-testid="btn-delete">🗑 Удалить</button>
+                    <button id="btnDelete" class="action-btn btn-delete-small" data-testid="btn-delete">🗑
+                        Удалить</button>
 
                     <button id="btnCloseBar" class="action-btn btn-close-small" data-testid="btn-close-bar">×</button>
                 </div>
@@ -218,7 +222,8 @@
         <div id="deleteConfirmModal" class="modal-overlay hidden" data-testid="delete-confirm-modal">
             <div class="modal-content" data-testid="modal-content">
                 <h3 data-testid="modal-title">Подтверждение удаления</h3>
-                <p data-testid="modal-description"><strong id="modalFileName" data-testid="modal-file-name">filename.txt</strong></p>
+                <p data-testid="modal-description"><strong id="modalFileName"
+                        data-testid="modal-file-name">filename.txt</strong></p>
                 <div class="modal-actions" data-testid="modal-actions">
                     <button id="btnCancelDelete" class="btn-secondary" data-testid="cancel-delete-btn">Отмена</button>
                     <button id="btnConfirmDelete" class="btn-danger" data-testid="confirm-delete-btn">Удалить</button>
@@ -312,6 +317,8 @@
             <div id="videoCaption" data-testid="video-caption"></div>
         </div>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/hash-wasm@4.12.0/dist/index.umd.min.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script type="module" src="{{ url_for('static', filename='js/app.js') }}" data-testid="app-script"></script>
 </body>

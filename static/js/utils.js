@@ -14,45 +14,51 @@ export function formatBytes(bytes) {
 /**
  * Вычисляет SHA-256 хеш файла
  */
-// ... existing code ...
 
-// ... existing code ...
-
-// ... existing code ...
-
-// ... existing code ...
-
-export async function computeFileHash(file) {
+export async function computeFileHash(file, onProgress = null) {
     try {
         if (!file || file.size === undefined) {
             throw new Error("Invalid file object");
         }
 
-        const buffer = await file.arrayBuffer();
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        return hashHex;
+        if (!window.hashwasm || !window.hashwasm.createSHA256) {
+            throw new Error("hash-wasm library not loaded");
+        }
+
+        const hasher = await window.hashwasm.createSHA256();
+        hasher.init();
+
+        const chunkSize = 10 * 1024 * 1024; // 10 МБ
+        let offset = 0;
+
+        while (offset < file.size) {
+            const chunk = file.slice(offset, offset + chunkSize);
+            const buffer = await chunk.arrayBuffer();
+            hasher.update(new Uint8Array(buffer));
+            offset += chunkSize;
+
+            // ⚡ КЛЮЧЕВОЙ МОМЕНТ: отдаем управление браузеру на 1 тик, 
+            // чтобы он мог перерисовать прогресс-бар и не зависал.
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // Сообщаем о прогрессе хеширования (максимум 40% от общей полосы)
+            if (onProgress) {
+                const hashPercent = Math.min((offset / file.size) * 40, 40);
+                onProgress(hashPercent);
+            }
+        }
+
+        return hasher.digest('hex');
     } catch (error) {
         if (error.name === 'AbortError' || error.message.includes('aborted')) {
-            console.error(`[HASH] File cannot be read: ${file.name} (size: ${file.size}, type: ${file.type})`, error);
+            console.error(`[HASH] File cannot be read: ${file.name}`, error);
             throw new Error('FileNotReadable');
         }
         console.error(`[HASH] Error computing hash for ${file.name}:`, error);
-        console.error(`[HASH] Error details - Name: ${error.name}, Message: ${error.message}`);
         throw error;
     }
 }
 
-// ... existing code ...
-
-// ... existing code ...
-
-// ... existing code ...
-
-// ... existing code ...
-
-// ... existing code ...
 
 /**
  * Возвращает эмодзи-иконку в зависимости от расширения файла
@@ -95,7 +101,7 @@ export function showToast(message, isError = false) {
     const toast = document.createElement('div');
     toast.id = 'toast-notification';
     toast.textContent = message;
-    
+
     // Стили для тоста
     Object.assign(toast.style, {
         position: 'fixed',
