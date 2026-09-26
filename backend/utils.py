@@ -2,6 +2,7 @@ import uuid
 import hashlib
 import random
 import string
+import secrets
 import math
 import os
 import re
@@ -103,10 +104,10 @@ def validate_folder_path(folder_path):
     
     logger.debug(f"[VALIDATE] Path validated successfully: '{normalized}'")
     return normalized
-def generate_short_id(length=6):
+def generate_short_id(length=12):
     """Генерирует уникальный короткий ID."""
     chars = string.ascii_letters + string.digits
-    short_id = ''.join(random.choice(chars) for _ in range(length))
+    short_id = ''.join(secrets.choice(chars) for _ in range(length))
     return short_id
 
 def format_file_size(size_bytes):
