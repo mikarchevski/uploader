@@ -231,7 +231,8 @@ def register_file_routes(app):
                                 os.remove(filepath)
                         except Exception as e:
                             logger.error(f"[BULK DELETE] Failed to remove file {unique_name}: {e}")
-                            errors.append({'short_id': short_id, 'error': f'Failed to delete file: {str(e)}'})
+                            errors.append({'short_id': short_id, 'error': 'Ошибка удаления файла с диска'})
+
                             continue
                         
                         # Удаляем из БД
@@ -240,7 +241,8 @@ def register_file_routes(app):
                         
                     except Exception as e:
                         logger.error(f"[BULK DELETE] Error deleting {file_info.get('short_id')}: {e}")
-                        errors.append({'short_id': file_info.get('short_id'), 'error': str(e)})
+                        errors.append({'short_id': file_info.get('short_id'), 'error': 'Ошибка обработки'})
+
                 
                 logger.info(f"[BULK DELETE] Folder deleted successfully: '{folder_path}' | Deleted: {deleted_count} files | Errors: {len(errors)} | User: {user_id} | CorrelationID: {correlation_id}")
                 client_logger.info(f"Folder deleted: {folder_path} ({deleted_count} files)")
@@ -279,7 +281,7 @@ def register_file_routes(app):
                         
                     except Exception as e:
                         logger.error(f"[BULK DELETE] Error deleting {short_id}: {e}")
-                        errors.append({'short_id': short_id, 'error': str(e)})
+                        errors.append({'short_id': short_id, 'error': 'Ошибка обработки'})
                 
                 logger.info(f"[BULK DELETE] Deleted {deleted_count} files by IDs, {len(errors)} errors | User: {user_id}")
                 client_logger.info(f"Bulk delete: {deleted_count} files deleted, {len(errors)} errors")

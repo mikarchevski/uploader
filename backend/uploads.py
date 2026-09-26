@@ -100,11 +100,18 @@ def register_upload_routes(app):
                 response.headers['Content-Type'] = 'application/json; charset=utf-8'
                 return response
                 
+        except ValueError as e:
+            # Для ошибок валидации можно вернуть общую фразу, не раскрывая детали исключения
+            logger.warning(f"[CHECK] Invalid folder path: {e} | CorrelationID: {correlation_id}")
+            return error_response('Недопустимый путь к папке', 400, correlation_id)
+            
         except Exception as e:
             import traceback
             tb_str = traceback.format_exc()
-            logger.error(f"[CHECK] Error: {str(e)} | Type: {type(e).__name__} | Traceback: {tb_str} | CorrelationID: {correlation_id}")
-            return error_response(f'Internal server error: {str(e)}', 500, correlation_id)
+            # Полные детали остаются ТОЛЬКО в логах сервера
+            logger.error(f"[CHECK] Critical Error: {str(e)} | Type: {type(e).__name__} | Traceback: {tb_str} | CorrelationID: {correlation_id}")
+            # Клиент получает общее, безопасное сообщение
+            return error_response('Внутренняя ошибка сервера при проверке файла', 500, correlation_id)
 
         # --- ЗАГРУЗКА ФАЙЛА ---
     @app.route('/upload', methods=['POST'])
@@ -212,8 +219,14 @@ def register_upload_routes(app):
             response.headers['Content-Type'] = 'application/json; charset=utf-8'
             return response
             
+        except ValueError as e:
+            logger.warning(f"[UPLOAD] Invalid folder path: {e} | CorrelationID: {correlation_id}")
+            return error_response('Недопустимый путь к папке', 400, correlation_id)
+            
         except Exception as e:
             import traceback
             tb_str = traceback.format_exc()
-            logger.error(f"[UPLOAD] Error: {str(e)} | Type: {type(e).__name__} | Traceback: {tb_str} | CorrelationID: {correlation_id}")
-            return error_response(f'Upload failed: {str(e)}', 500, correlation_id)
+            # Полные детали остаются ТОЛЬКО в логах сервера
+            logger.error(f"[UPLOAD] Critical Error: {str(e)} | Type: {type(e).__name__} | Traceback: {tb_str} | CorrelationID: {correlation_id}")
+            # Клиент получает общее, безопасное сообщение
+            return error_response('Внутренняя ошибка сервера при загрузке файла', 500, correlation_id)

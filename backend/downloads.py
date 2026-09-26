@@ -154,7 +154,7 @@ def register_download_routes(app):
 
             # 🔴 ПРОВЕРКА: Существует ли файл физически на диске?
             file_path = safe_join_paths(UPLOAD_FOLDER, unique_name)
-            logger.info(f"[DEBUG] Ожидаемый путь к файлу: {os.path.abspath(file_path)}")
+            logger.debug(f"[DEBUG] Ожидаемый путь к файлу: {os.path.abspath(file_path)}")
             if not os.path.exists(file_path):
                 logger.warning(f"[DOWNLOAD] File missing on disk for short_id: {short_id} (Expected path: {file_path}) | CorrelationID: {correlation_id}")
                 abort(404) # Возвращаем честные 404, а не 500
