@@ -45,29 +45,37 @@ def register_file_routes(app):
 
     # --- СПИСОК ФАЙЛОВ ---
     @app.route('/api/files', methods=['GET'])
-    
     @limiter.limit("600/minute")
     def list_files_api():
         correlation_id = None
+        
         try:
             from backend.utils import get_or_create_correlation_id
             correlation_id = get_or_create_correlation_id()
             
+            # 1. ПРОВЕРКА АВТОРИЗАЦИИ (лучше делать это в первую очередь)
             user_id = session.get('user_id')
-
             if not user_id:
                 return error_response('Требуется авторизация', 401, correlation_id)
             
-            page = request.args.get('page', 1, type=int)
+            # 2. БЕЗОПАСНОЕ ПОЛУЧЕНИЕ И ВАЛИДАЦИЯ ПАРАМЕТРОВ (только один раз!)
+            # Ограничиваем page минимумом 1 (защита от page=0 или page=-1)
+            page = max(1, request.args.get('page', 1, type=int))
+            
+            # Ограничиваем per_page диапазоном от 1 до MAX_PAGE_SIZE (защита от DoS и ZeroDivisionError)
             per_page = request.args.get('per_page', 20, type=int)
+            per_page = min(max(1, per_page), MAX_PAGE_SIZE)
+            
             sort_field = request.args.get('sort', 'upload_date')
-            sort_order = request.args.get('order', 'DESC')
+            
+            # надежная валидация порядка сортировки
+            sort_order_raw = request.args.get('order', 'DESC')
+            sort_order = sort_order_raw.upper() if sort_order_raw.upper() in ['ASC', 'DESC'] else 'DESC'
+            
             folder_path = request.args.get('folder', None)
             
-            # ВАЛИДАЦИЯ folder_path
+            # 3. ВАЛИДАЦИЯ folder_path
             if folder_path:
-                # ЛОГИРОВАНИЕ для отладки
-                
                 try:
                     folder_path = validate_folder_path(folder_path)
                 except ValueError as e:
@@ -76,6 +84,7 @@ def register_file_routes(app):
             
             logger.debug(f"[API] Listing files: page={page}, per_page={per_page} | CorrelationID: {correlation_id}")
             
+            # 4. ПОЛУЧЕНИЕ ДАННЫХ
             files, total_count = get_files_paginated(
                 user_id=user_id,
                 page=page,
@@ -85,6 +94,7 @@ def register_file_routes(app):
                 folder_path=folder_path
             )
             
+            # 5. ФОРМАТИРОВАНИЕ ОТВЕТА
             formatted_files = []
             for f in files:
                 formatted_files.append({
@@ -102,11 +112,11 @@ def register_file_routes(app):
                 'total': total_count,
                 'page': page,
                 'per_page': per_page,
-                'pages': (total_count + per_page - 1) // per_page
+                # Теперь эта строка на 100% безопасна от ZeroDivisionError
+                'pages': (total_count + per_page - 1) // per_page 
             }
 
             logger.info(f"[API] Listed {len(files)} files for user {user_id} (page {page}, total {total_count}) | Folder: '{folder_path or 'root'}' | CorrelationID: {correlation_id}")
-
             
             return jsonify(response_data)
             
