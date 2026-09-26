@@ -12,6 +12,21 @@ export function formatBytes(bytes) {
 }
 
 /**
+ * Экранирует HTML-символы для защиты от XSS.
+ * Включает экранирование кавычек для безопасной вставки в атрибуты.
+ * @param {string} text - Текст для экранирования
+ * @returns {string} Безопасный текст
+ */
+export function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+/**
  * Вычисляет SHA-256 хеш файла
  */
 

@@ -2,6 +2,7 @@
 import { computeFileHash } from './utils.js';
 import { checkFileExists, uploadFile } from './api.js';
 import { clientLogger } from './logger.js';
+import { escapeHtml } from './utils.js';
 
 export class UploadManager {
     constructor(onUploadComplete) {
@@ -143,9 +144,12 @@ export class UploadManager {
         const itemEl = document.createElement('div');
         itemEl.className = 'upload-item folder-upload-item';
 
+        const safeRootPath = escapeHtml(rootPath);
+        const safeRootName = escapeHtml(rootName);
+
         itemEl.innerHTML = `
             <div class="item-header">
-                <span class="item-name" title="${rootPath}">📁 ${rootName} (${totalFiles} файлов)</span>
+                <span class="item-name" title="${safeRootPath}">📁 ${safeRootName} (${totalFiles} файлов)</span>
                 <button class="cancel-btn" title="Отменить загрузку">×</button>
             </div>
             <div class="item-status">Подготовка...</div>
@@ -153,7 +157,7 @@ export class UploadManager {
                 <div class="progress-bar"></div>
             </div>
             <div class="folder-details" style="font-size: 0.8rem; color: var(--muted); margin-top: 5px;">
-                Путь: ${rootPath}
+                Путь: ${safeRootPath}
             </div>
         `;
 
@@ -257,9 +261,11 @@ export class UploadManager {
         itemEl.className = 'upload-item';
         itemEl.setAttribute('data-testid', `upload-item-${file.name.replace(/\s+/g, '-')}`);
 
+        const safeFilename = escapeHtml(file.name);
+
         itemEl.innerHTML = `
             <div class="item-header">
-                <span class="item-name" title="${file.name}">${file.name}</span>
+                <span class="item-name" title="${safeFilename}">${safeFilename}</span>
                 <button class="cancel-btn" title="Отменить загрузку">×</button>
             </div>
             <div class="item-status">Ожидание...</div>

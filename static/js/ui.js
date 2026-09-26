@@ -1,18 +1,7 @@
 // ui.js
-import { getIconForFile } from './utils.js';
 import { clientLogger } from './logger.js';
+import { getIconForFile, escapeHtml } from './utils.js';
 
-/**
- * Экранирует HTML-символы для защиты от XSS
- * @param {string} text - Текст для экранирования
- * @returns {string} Безопасный текст
- */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
 
 // === КЭШИРОВАНИЕ ПРЕВЬЮ ===
 const PREVIEW_CACHE_KEY = 'file_preview_cache';
