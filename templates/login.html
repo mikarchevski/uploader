@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Подключаем специфичные стили для авторизации -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
-    
+
     <!-- CSRF Token Meta Tag -->
     <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
 </head>
@@ -28,19 +29,21 @@
         <form method="POST" action="/login" data-testid="auth-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- CSRF Token для формы -->
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/>
-            
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}" />
+
             <!-- Скрытое поле для режима. 0 = вход, 1 = регистрация -->
             <input type="hidden" name="register" id="registerMode" value="0" data-testid="register-mode-input">
 
             <div class="form-group" data-testid="username-form-group">
                 <label class="form-label" data-testid="username-label">Имя пользователя</label>
-                <input type="text" data-testid='username-input' name="username" class="form-input" required autocomplete="username">
+                <input type="text" data-testid='username-input' name="username" class="form-input" required
+                    autocomplete="username">
             </div>
-            
+
             <div class="form-group" data-testid="password-form-group">
                 <label class="form-label" data-testid="password-label">Пароль</label>
-                <input type="password" data-testid='password-input' name="password" class="form-input" required autocomplete="current-password">
+                <input type="password" data-testid='password-input' name="password" class="form-input" required
+                    autocomplete="current-password">
             </div>
 
             <button type="submit" data-testid='submit-btn' class="btn-submit" id="submitBtn">Войти</button>
@@ -50,11 +53,12 @@
             <span id="switchText" data-testid="switch-text">Нет аккаунта?</span>
             <a class="auth-link" id="toggleLink" data-testid="toggle-link">Зарегистрироваться</a>
         </div>
-        
-        <a href="/" class="back-home" data-testid="back-home-link">← Вернуться на главную</a>
+
+        <a href="https://mk5d.ru" class="back-home" data-testid="back-home-link">← Вернуться на главную</a>
     </div>
 
     <!-- Подключаем скрипт авторизации -->
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
 </body>
+
 </html>
