@@ -1,5 +1,5 @@
 # backend/auth.py
-from flask import request, jsonify, session, redirect, url_for, render_template, current_app
+from flask import request, flash, jsonify, session, redirect, url_for, render_template, current_app
 from backend.extensions import limiter
 import logging
 from .database import get_user_by_username, create_user, verify_password
@@ -15,14 +15,14 @@ def register_auth_routes(app):
     def login():
         if request.method == 'POST':
             is_register = request.form.get('register') == '1'
-            username = request.form.get('username')
-            password = request.form.get('password')
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
             
-            # Получаем IP для логов
             user_ip = request.remote_addr
             
             if not username or not password:
-                return render_template('login.html', error='Заполните все поля')
+                flash('Заполните все поля', 'error')
+                return redirect(url_for('login'))
 
             user = get_user_by_username(username)
             
@@ -42,18 +42,30 @@ def register_auth_routes(app):
                     logger.warning(log_msg)
                     client_logger.warning(log_msg)
                     
-                    return render_template('login.html', error='Неверный логин или пароль')
+                    flash('Неверный логин или пароль', 'error')
+                    return redirect(url_for('login'))
             else:
                 # Регистрация
+                password_confirm = request.form.get('password_confirm', '')
+                
+                if len(password) < 6:
+                    flash('Пароль должен быть не менее 6 символов', 'error')
+                    return redirect(url_for('login'))
+                    
+                if password != password_confirm:
+                    flash('Пароли не совпадают', 'error')
+                    return redirect(url_for('login'))
+
                 if user:
                     logger.warning(f"[AUTH] Registration failed: User '{username}' already exists")
-                    return render_template('login.html', error='Пользователь уже существует')
+                    flash('Пользователь уже существует', 'error')
+                    return redirect(url_for('login'))
                 
                 if create_user(username, password):
                     new_user = get_user_by_username(username)
                     session['user_id'] = new_user['id']
                     session['username'] = new_user['username']
-                    
+
                     log_msg = f"[AUTH] New user registered: '{username}' from {user_ip}"
                     logger.info(log_msg)
                     client_logger.info(log_msg)
@@ -61,10 +73,11 @@ def register_auth_routes(app):
                     return redirect('/')
                 else:
                     logger.error(f"[AUTH] Registration error for user '{username}'")
-                    return render_template('login.html', error='Ошибка при создании пользователя')
-        
+                    flash('Ошибка при создании пользователя', 'error')
+                    return redirect(url_for('login'))
+    
+        # GET-запрос: показываем чистую форму
         return render_template('login.html')
-
     @app.route('/logout')
     def logout():
         username = session.get('username', 'Unknown')
