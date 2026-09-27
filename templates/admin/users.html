@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Пользователи - Админка</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .admin-table th,
+    .admin-table td {
+      padding: 15px 20px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    .admin-table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #555;
+    }
+
+    .admin-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .admin-table a {
+      color: #4a90e2;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .admin-table a:hover {
+      text-decoration: underline;
+    }
+
+    .btn-back {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #666;
+      text-decoration: none;
+    }
+
+    .btn-back:hover {
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+      <h1>Пользователи сайта</h1>
+      <div>
+        <span>Администратор: {{ session.admin_username }}</span>
+        <a href="{{ url_for('admin_logout') }}"
+          style="margin-left: 20px; color: #e74c3c; text-decoration: none;">Выйти</a>
+      </div>
+    </header>
+
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-back">← Назад к панели управления</a>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="width: 10%;">
+            <a href="?sort=id&order={{ 'ASC' if (sort_by == 'id' and order == 'DESC') else 'DESC' }}">
+              ID {% if sort_by == 'id' %}{{ '↑' if order == 'ASC' else '↓' }}{% endif %}
+            </a>
+          </th>
+          <th style="width: 40%;">
+            <a href="?sort=username&order={{ 'ASC' if (sort_by == 'username' and order == 'DESC') else 'DESC' }}">
+              Логин {% if sort_by == 'username' %}{{ '↑' if order == 'ASC' else '↓' }}{% endif %}
+            </a>
+          </th>
+          <th style="width: 50%;">
+            <a href="?sort=created_at&order={{ 'ASC' if (sort_by == 'created_at' and order == 'DESC') else 'DESC' }}">
+              Дата регистрации {% if sort_by == 'created_at' %}{{ '↑' if order == 'ASC' else '↓' }}{% endif %}
+            </a>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>{{ user.id }}</td>
+          <td><a href="{{ url_for('admin_user_detail', user_id=user.id) }}">{{ user.username }}</a></td>
+          <td>{{ user.created_at[:10] }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" style="text-align: center; color: #888;">Пользователей пока нет</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+
+</html>

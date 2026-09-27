@@ -5,6 +5,7 @@ from .uploads import register_upload_routes
 from .downloads import register_download_routes
 from .previews import register_preview_routes
 from .files import register_file_routes
+from backend.admin_routes import register_admin_routes
 
 
 def register_routes(app):
@@ -35,6 +36,8 @@ def register_routes(app):
     
     # 5. Остальные роуты из files.py (список файлов, удаление)
     register_file_routes(app)
+
+    register_admin_routes(app)
 
     # 6. Главная страница (требует авторизации)
     @app.route('/')

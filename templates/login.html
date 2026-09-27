@@ -23,10 +23,14 @@
 
         <form method="POST" action="/login" data-testid="auth-form" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+            <!-- Скрытое поле режима -->
             <input type="hidden" name="register" id="registerMode" value="{{ '1' if is_register else '0' }}"
                 data-testid="register-mode-input">
 
             <div class="form-group" data-testid="username-form-group">
+                <input type="text" data-testid="username-input" name="username" class="form-input" required
+                    autocomplete="username" value="{{ username or '' }}">
+
                 <label class="form-label" data-testid="username-label">Имя пользователя</label>
                 <input type="text" data-testid="username-input" name="username" class="form-input"
                     autocomplete="username" value="{{ username or '' }}">
@@ -47,6 +51,15 @@
                 <input type="password" data-testid="password-confirm-input" name="password_confirm" class="form-input"
                     autocomplete="new-password" value="{{ password_confirm or '' }}">
                 <div class="field-error" id="passwordConfirmError"></div>
+            </div>
+            <div class="form-group" data-testid="invite-code-form-group" id="inviteCodeGroup"
+                style="display: {{ 'block' if is_register else 'none' }};">
+                <input type="text" data-testid="invite-code-input" name="invite_code" class="form-input"
+                    autocomplete="off" value="{{ invite_code or '' }}">
+                <label class="form-label" data-testid="invite-code-label">Код приглашения</label>
+                <input type="text" data-testid="invite-code-input" name="invite_code" class="form-input"
+                    autocomplete="off" value="{{ invite_code or '' }}">
+                <div class="field-error" id="inviteCodeError"></div>
             </div>
 
             <button type="submit" data-testid="submit-btn" class="btn-submit" id="submitBtn">{{ 'Зарегистрироваться' if

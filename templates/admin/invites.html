@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Коды приглашений - Админка</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .invite-form {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      margin-bottom: 30px;
+    }
+
+    .invite-form input {
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 1rem;
+      width: 300px;
+      margin-right: 10px;
+    }
+
+    .invite-form button {
+      padding: 10px 20px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .invite-form button:hover {
+      background: #357abd;
+    }
+
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .admin-table th,
+    .admin-table td {
+      padding: 15px 20px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    .admin-table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #555;
+    }
+
+    .status-active {
+      color: #27ae60;
+      font-weight: 600;
+    }
+
+    .status-used {
+      color: #95a5a6;
+    }
+
+    .btn-delete {
+      padding: 5px 10px;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .btn-delete:hover {
+      background: #c0392b;
+    }
+
+    .btn-back {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #666;
+      text-decoration: none;
+    }
+
+    .btn-back:hover {
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+      <h1>Коды приглашений</h1>
+      <div>
+        <span>Администратор: {{ session.admin_username }}</span>
+        <a href="{{ url_for('admin_logout') }}"
+          style="margin-left: 20px; color: #e74c3c; text-decoration: none;">Выйти</a>
+      </div>
+    </header>
+
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-back">← Назад к панели управления</a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}" style="padding: 12px; margin-bottom: 20px; border-radius: 8px;">{{
+      message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="invite-form">
+      <h3>Создать новый код</h3>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="code" placeholder="Например: MK5DFRIEND" required>
+        <button type="submit">Создать</button>
+      </form>
+    </div>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Код</th>
+          <th>Создан</th>
+          <th>Статус</th>
+          <th>Использован</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for invite in invite_codes %}
+        <tr>
+          <td><strong>{{ invite.code }}</strong></td>
+          <td>{{ invite.created_at[:10] }}</td>
+          <td>
+            {% if invite.is_active %}
+            <span class="status-active">Активен</span>
+            {% else %}
+            <span class="status-used">Использован</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if invite.used_by_username %}
+            {{ invite.used_by_username }} ({{ invite.used_at[:10] }})
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>
+            {% if invite.is_active %}
+            <form method="POST" action="{{ url_for('admin_delete_invite', code_id=invite.id) }}"
+              style="display: inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-delete" onclick="return confirm('Удалить этот код?')">Удалить</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="text-align: center; color: #888;">Кодов приглашений пока нет</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+
+</html>

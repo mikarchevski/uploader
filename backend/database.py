@@ -671,3 +671,310 @@ def get_files_paginated(user_id, page=1, per_page=20, sort_field='upload_date', 
     finally:
         if conn:
             conn.close()
+
+
+def init_admin_db():
+    """Инициализирует таблицу администраторов."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        conn.commit()
+        logger.info("✓ Admin users table initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize admin users table: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+def get_admin_by_username(username):
+    """Получает администратора по имени."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM admin_users WHERE username = ?', (username,))
+        row = c.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Error getting admin {username}: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def create_admin(username, password):
+    """Создает нового администратора."""
+    from werkzeug.security import generate_password_hash
+    
+    password_hash = generate_password_hash(password)
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('INSERT INTO admin_users (username, password_hash, created_at) VALUES (?, ?, ?)',
+                  (username, password_hash, datetime.now().isoformat()))
+        conn.commit()
+        logger.info(f"Admin created: {username}")
+        return True
+    except sqlite3.IntegrityError:
+        logger.warning(f"Admin username already exists: {username}")
+        if conn:
+            conn.rollback()
+        return False
+    except Exception as e:
+        logger.error(f"Error creating admin {username}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def list_all_users(sort_by='id', order='DESC'):
+    """Возвращает список всех пользователей сайта с сортировкой."""
+    conn = None
+    try:
+        # Защита от SQL-инъекций: разрешаем сортировать только по этим полям
+        allowed_sort = {'id', 'username', 'created_at'}
+        allowed_order = {'ASC', 'DESC'}
+        
+        sort_by = sort_by if sort_by in allowed_sort else 'id'
+        order = order.upper() if order.upper() in allowed_order else 'DESC'
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        # Динамический ORDER BY (безопасный, так как значения из белого списка)
+        query = f'SELECT id, username, created_at FROM users ORDER BY {sort_by} {order}'
+        c.execute(query)
+        
+        return [dict(row) for row in c.fetchall()]
+    except Exception as e:
+        logger.error(f"Error listing users: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def delete_user_by_id(user_id):
+    """Удаляет пользователя и все его файлы."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # Сначала удаляем все файлы пользователя
+        c.execute('DELETE FROM files WHERE owner_id = ?', (user_id,))
+        
+        # Затем удаляем самого пользователя
+        c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        
+        conn.commit()
+        logger.info(f"User {user_id} and all their files deleted")
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting user {user_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def reset_user_password(user_id, new_password):
+    """Сбрасывает пароль пользователя."""
+    from werkzeug.security import generate_password_hash
+    
+    password_hash = generate_password_hash(new_password)
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('UPDATE users SET password_hash = ? WHERE id = ?', (password_hash, user_id))
+        conn.commit()
+        logger.info(f"Password reset for user {user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error resetting password for user {user_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def get_user_by_id(user_id):
+    """Получает пользователя по ID."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT id, username, created_at FROM users WHERE id = ?', (user_id,))
+        row = c.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Error getting user {user_id}: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def count_all_users():
+    """Возвращает общее количество пользователей сайта."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) FROM users')
+        return c.fetchone()[0]
+    except Exception as e:
+        logger.error(f"Error counting users: {e}")
+        return 0
+    finally:
+        if conn:
+            conn.close()
+
+def init_invite_codes_table():
+    """Инициализирует таблицу кодов приглашений."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS invite_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE NOT NULL,
+                created_by INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                used_by INTEGER DEFAULT NULL,
+                used_at TEXT DEFAULT NULL,
+                is_active INTEGER DEFAULT 1,
+                FOREIGN KEY(created_by) REFERENCES admin_users(id),
+                FOREIGN KEY(used_by) REFERENCES users(id)
+            )
+        ''')
+        conn.commit()
+        logger.info("✓ Invite codes table initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize invite codes table: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+def create_invite_code(code, admin_id):
+    """Создает новый код приглашения."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('INSERT INTO invite_codes (code, created_by, created_at, is_active) VALUES (?, ?, ?, 1)',
+                  (code.upper(), admin_id, datetime.now().isoformat()))
+        conn.commit()
+        logger.info(f"Invite code created: {code} by admin {admin_id}")
+        return True
+    except sqlite3.IntegrityError:
+        logger.warning(f"Invite code already exists: {code}")
+        if conn:
+            conn.rollback()
+        return False
+    except Exception as e:
+        logger.error(f"Error creating invite code: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def validate_invite_code(code):
+    """Проверяет, действителен ли код приглашения."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM invite_codes WHERE code = ? AND is_active = 1', (code.upper(),))
+        row = c.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Error validating invite code: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def mark_invite_code_used(code_id, user_id):
+    """Отмечает код как использованный."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('UPDATE invite_codes SET used_by = ?, used_at = ?, is_active = 0 WHERE id = ?',
+                  (user_id, datetime.now().isoformat(), code_id))
+        conn.commit()
+        logger.info(f"Invite code {code_id} marked as used by user {user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error marking invite code as used: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def list_invite_codes():
+    """Возвращает список всех кодов приглашений."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('''
+            SELECT ic.*, u.username as used_by_username
+            FROM invite_codes ic
+            LEFT JOIN users u ON ic.used_by = u.id
+            ORDER BY ic.created_at DESC
+        ''')
+        return [dict(row) for row in c.fetchall()]
+    except Exception as e:
+        logger.error(f"Error listing invite codes: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def delete_invite_code(code_id):
+    """Удаляет код приглашения."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('DELETE FROM invite_codes WHERE id = ?', (code_id,))
+        conn.commit()
+        logger.info(f"Invite code {code_id} deleted")
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting invite code: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()

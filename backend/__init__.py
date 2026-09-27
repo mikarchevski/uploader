@@ -1,6 +1,6 @@
 # backend/__init__.py
 from flask import Flask
-from .database import init_db
+from .database import init_db, init_admin_db, init_invite_codes_table
 from .routes import register_routes
 import os
 import warnings
@@ -63,8 +63,10 @@ def create_app():
     
     # Инициализация БД
     init_db()
-    
+    init_admin_db()
+    init_invite_codes_table()
+
     # Регистрация маршрутов
     register_routes(app)
-    
+
     return app

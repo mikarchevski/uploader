@@ -9,6 +9,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -89,7 +90,6 @@ def create_app():
 
     # Сначала инициализируем limiter
     from backend.extensions import limiter
-    
     app = backend_create_app()
     
     # Затем инициализируем limiter с приложением

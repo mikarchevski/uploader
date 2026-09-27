@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Пользователь {{ user.username }} - Админка</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .user-card {
+      background: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      max-width: 600px;
+    }
+
+    .user-card p {
+      margin: 15px 0;
+      font-size: 1.1rem;
+    }
+
+    .user-card strong {
+      color: #333;
+      display: inline-block;
+      width: 180px;
+    }
+
+    .placeholder-notice {
+      margin-top: 30px;
+      padding: 15px;
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      color: #856404;
+      border-radius: 4px;
+    }
+
+    .btn-back {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #666;
+      text-decoration: none;
+    }
+
+    .btn-back:hover {
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+      <h1>Пользователь: {{ user.username }}</h1>
+      <div>
+        <span>Администратор: {{ session.admin_username }}</span>
+        <a href="{{ url_for('admin_logout') }}"
+          style="margin-left: 20px; color: #e74c3c; text-decoration: none;">Выйти</a>
+      </div>
+    </header>
+
+    <a href="{{ url_for('admin_users') }}" class="btn-back">← Назад к списку пользователей</a>
+
+    <div class="user-card">
+      <p><strong>ID:</strong> {{ user.id }}</p>
+      <p><strong>Логин:</strong> {{ user.username }}</p>
+      <p><strong>Дата регистрации:</strong> {{ user.created_at }}</p>
+
+      <div class="placeholder-notice">
+        Здесь скоро появятся кнопки управления: сброс пароля, удаление пользователя и статистика его файлов.
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

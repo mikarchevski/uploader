@@ -23,6 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
         passwordInput.value = '';
         passwordConfirmInput.value = '';
         clearAllErrors();
+        const inviteCodeGroup = document.getElementById('inviteCodeGroup');
+        if (inviteCodeGroup) {
+            inviteCodeGroup.style.display = isRegisterMode ? 'block' : 'none';
+        }
+
+
 
         if (isRegisterMode) {
             pageTitle.textContent = 'Регистрация';
@@ -33,12 +39,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             passwordConfirmGroup.style.display = 'block';
             passwordInput.setAttribute('autocomplete', 'new-password');
+            inviteCodeGroup.style.display = 'block';
+
         } else {
             pageTitle.textContent = 'Вход';
             submitBtn.textContent = 'Войти';
             switchText.textContent = 'Нет аккаунта?';
             toggleLink.textContent = 'Зарегистрироваться';
             registerModeInput.value = '0';
+            inviteCodeGroup.style.display = 'none';
 
             passwordConfirmGroup.style.display = 'none';
             passwordInput.setAttribute('autocomplete', 'current-password');
@@ -114,6 +123,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    function validateInviteCode() {
+        if (!isRegisterMode) return true;
+
+        const inviteCodeInput = document.querySelector('input[name="invite_code"]');
+        const inviteCodeError = document.getElementById('inviteCodeError');
+
+        if (!inviteCodeInput || !inviteCodeError) return true;
+
+        if (inviteCodeInput.value.trim() === '') {
+            showError(inviteCodeInput, inviteCodeError, 'Введите код приглашения');
+            return false;
+        }
+
+        clearError(inviteCodeInput, inviteCodeError);
+        return true;
+    }
+
     usernameInput.addEventListener('input', () => {
         if (usernameInput.classList.contains('input-error')) {
             validateUsername();
@@ -158,5 +184,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         // Если валидно, форма отправляется естественно
+    });
+
+    authForm.addEventListener('submit', (e) => {
+        let isValid = true;
+
+        if (!validateUsername()) isValid = false;
+        if (!validatePassword()) isValid = false;
+        if (isRegisterMode && !validatePasswordConfirm()) isValid = false;
+        if (isRegisterMode && !validateInviteCode()) isValid = false;  // <-- Добавьте
+
+        if (!isValid) {
+            e.preventDefault();
+            const firstError = document.querySelector('.input-error');
+            if (firstError) firstError.focus();
+        }
     });
 });
