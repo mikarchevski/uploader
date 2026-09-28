@@ -15,20 +15,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const passwordError = document.getElementById('passwordError');
     const passwordConfirmError = document.getElementById('passwordConfirmError');
 
-    let isRegisterMode = false;
+    // ИСПРАВЛЕНИЕ 1: Читаем реальное состояние из скрытого поля, которое отдал сервер!
+    let isRegisterMode = registerModeInput.value === '1';
 
-    function applyModeUI() {
-        // Очищаем поля при переключении
-        usernameInput.value = '';
-        passwordInput.value = '';
-        passwordConfirmInput.value = '';
-        clearAllErrors();
+    // ИСПРАВЛЕНИЕ 2: Добавляем параметр clearFields. По умолчанию false (при загрузке не очищаем!)
+    function applyModeUI(clearFields = false) {
+        if (clearFields) {
+            usernameInput.value = '';
+            passwordInput.value = '';
+            passwordConfirmInput.value = '';
+            const inviteInput = document.querySelector('input[name="invite_code"]');
+            if (inviteInput) inviteInput.value = '';
+            clearAllErrors();
+        }
+
         const inviteCodeGroup = document.getElementById('inviteCodeGroup');
         if (inviteCodeGroup) {
             inviteCodeGroup.style.display = isRegisterMode ? 'block' : 'none';
         }
-
-
 
         if (isRegisterMode) {
             pageTitle.textContent = 'Регистрация';
@@ -36,30 +40,27 @@ document.addEventListener('DOMContentLoaded', () => {
             switchText.textContent = 'Уже есть аккаунт?';
             toggleLink.textContent = 'Войти';
             registerModeInput.value = '1';
-
             passwordConfirmGroup.style.display = 'block';
             passwordInput.setAttribute('autocomplete', 'new-password');
-            inviteCodeGroup.style.display = 'block';
-
         } else {
             pageTitle.textContent = 'Вход';
             submitBtn.textContent = 'Войти';
             switchText.textContent = 'Нет аккаунта?';
             toggleLink.textContent = 'Зарегистрироваться';
             registerModeInput.value = '0';
-            inviteCodeGroup.style.display = 'none';
-
             passwordConfirmGroup.style.display = 'none';
             passwordInput.setAttribute('autocomplete', 'current-password');
         }
     }
 
-    applyModeUI();
+    // При загрузке страницы НЕ очищаем поля (чтобы сохранить данные и ошибку от сервера)
+    applyModeUI(false);
 
+    // А вот при клике на переключатель - очищаем!
     toggleLink.addEventListener('click', (e) => {
         e.preventDefault();
         isRegisterMode = !isRegisterMode;
-        applyModeUI();
+        applyModeUI(true); // true = очистить поля
     });
 
     function showError(inputElement, errorElement, message) {
@@ -78,6 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
         clearError(usernameInput, usernameError);
         clearError(passwordInput, passwordError);
         clearError(passwordConfirmInput, passwordConfirmError);
+        const inviteError = document.getElementById('inviteCodeError');
+        const inviteInput = document.querySelector('input[name="invite_code"]');
+        if (inviteInput && inviteError) clearError(inviteInput, inviteError);
     }
 
     function validateUsername() {
@@ -90,42 +94,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function validatePassword() {
-        if (!isRegisterMode) return true;
-
         if (passwordInput.value.length === 0) {
             showError(passwordInput, passwordError, 'Введите пароль');
             return false;
         }
-
-        if (passwordInput.value.length < 6) {
+        if (isRegisterMode && passwordInput.value.length < 6) {
             showError(passwordInput, passwordError, 'Пароль должен содержать минимум 6 символов');
             return false;
         }
-
         clearError(passwordInput, passwordError);
         return true;
     }
 
     function validatePasswordConfirm() {
         if (!isRegisterMode) return true;
-
         if (passwordConfirmInput.value.length === 0) {
             showError(passwordConfirmInput, passwordConfirmError, 'Подтвердите пароль');
             return false;
         }
-
         if (passwordInput.value !== passwordConfirmInput.value) {
             showError(passwordConfirmInput, passwordConfirmError, 'Пароли не совпадают');
             return false;
         }
-
         clearError(passwordConfirmInput, passwordConfirmError);
         return true;
     }
 
     function validateInviteCode() {
         if (!isRegisterMode) return true;
-
         const inviteCodeInput = document.querySelector('input[name="invite_code"]');
         const inviteCodeError = document.getElementById('inviteCodeError');
 
@@ -135,46 +131,31 @@ document.addEventListener('DOMContentLoaded', () => {
             showError(inviteCodeInput, inviteCodeError, 'Введите код приглашения');
             return false;
         }
-
         clearError(inviteCodeInput, inviteCodeError);
         return true;
     }
 
     usernameInput.addEventListener('input', () => {
-        if (usernameInput.classList.contains('input-error')) {
-            validateUsername();
-        }
+        if (usernameInput.classList.contains('input-error')) validateUsername();
     });
 
     passwordInput.addEventListener('input', () => {
-        if (passwordInput.classList.contains('input-error')) {
-            validatePassword();
-        }
-        if (passwordConfirmInput.value && passwordConfirmInput.classList.contains('input-error')) {
-            validatePasswordConfirm();
-        }
+        if (passwordInput.classList.contains('input-error')) validatePassword();
+        if (passwordConfirmInput.value && passwordConfirmInput.classList.contains('input-error')) validatePasswordConfirm();
     });
 
     passwordConfirmInput.addEventListener('input', () => {
-        if (passwordConfirmInput.classList.contains('input-error')) {
-            validatePasswordConfirm();
-        }
+        if (passwordConfirmInput.classList.contains('input-error')) validatePasswordConfirm();
     });
 
+    // ИСПРАВЛЕНИЕ 3: Объединили два дублирующихся обработчика submit в один чистый
     authForm.addEventListener('submit', (e) => {
         let isValid = true;
 
-        if (!validateUsername()) {
-            isValid = false;
-        }
-
-        if (!validatePassword()) {
-            isValid = false;
-        }
-
-        if (isRegisterMode && !validatePasswordConfirm()) {
-            isValid = false;
-        }
+        if (!validateUsername()) isValid = false;
+        if (!validatePassword()) isValid = false;
+        if (isRegisterMode && !validatePasswordConfirm()) isValid = false;
+        if (isRegisterMode && !validateInviteCode()) isValid = false;
 
         if (!isValid) {
             e.preventDefault();
@@ -183,21 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 firstError.focus();
             }
         }
-        // Если валидно, форма отправляется естественно
-    });
-
-    authForm.addEventListener('submit', (e) => {
-        let isValid = true;
-
-        if (!validateUsername()) isValid = false;
-        if (!validatePassword()) isValid = false;
-        if (isRegisterMode && !validatePasswordConfirm()) isValid = false;
-        if (isRegisterMode && !validateInviteCode()) isValid = false;  // <-- Добавьте
-
-        if (!isValid) {
-            e.preventDefault();
-            const firstError = document.querySelector('.input-error');
-            if (firstError) firstError.focus();
-        }
+        // Если валидно, форма отправляется естественно на сервер
     });
 });

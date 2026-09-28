@@ -219,7 +219,7 @@ def create_app():
     app.config['SESSION_COOKIE_NAME'] = 'session'
     app.config['SESSION_COOKIE_PATH'] = '/'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+    app.config['SESSION_COOKIE_SECURE'] = False
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
     app.config['SESSION_USE_SIGNER'] = True
     

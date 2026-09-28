@@ -10,92 +10,93 @@ def register_auth_routes(app):
     logger = logging.getLogger(__name__)
     client_logger = logging.getLogger('client_frontend')
     
+    # backend/auth.py
+
     @app.route('/login', methods=['GET', 'POST'])
     @limiter.limit(RATE_LIMIT_LOGIN)
     def login():
-        # 1. GET-запрос: показываем форму, читая состояние из сессии
+        # 1. GET-запрос
         if request.method == 'GET':
-            # pop() забирает значение и удаляет его, чтобы при следующем F5 форма была чистой
             is_register = session.pop('register_mode', False)
             reg_username = session.pop('reg_username', '')
             reg_invite = session.pop('reg_invite', '')
+            error_msg = session.pop('error_msg', '')
             
             return render_template(
-                'login.html', 
+                'auth.html',  # <--- ИСПОЛЬЗУЕМ НОВЫЙ ЧИСТЫЙ ФАЙЛ
                 is_register=is_register, 
                 username=reg_username, 
-                invite_code=reg_invite
+                invite_code=reg_invite,
+                error=error_msg
             )
 
-        # 2. POST-запрос: обработка данных
+        # 2. POST-запрос
         is_register = request.form.get('register') == '1'
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+        invite_code = request.form.get('invite_code', '').strip().upper()
         user_ip = request.remote_addr
 
-        if not username or not password:
-            flash('Заполните все поля', 'error')
-            if is_register: session['register_mode'] = True
-            return redirect(url_for('login'))
-
-        user = get_user_by_username(username)
+        # Функция возврата формы с ошибкой БЕЗ редиректа
+        def render_registration_error(message):
+            print(f"⚠️ ОШИБКА РЕГИСТРАЦИИ: {message}")
+            return render_template(
+                'auth.html',  # <--- ИСПОЛЬЗУЕМ НОВЫЙ ЧИСТЫЙ ФАЙЛ
+                is_register=True,
+                username=username,
+                password=password,
+                password_confirm=password_confirm,
+                invite_code=invite_code,
+                error=message
+            )
 
         if not is_register:
-            # --- ВХОД ---
+            # --- ЛОГИКА ВХОДА ---
+            from backend.database import get_user_by_username, verify_password
+            user = get_user_by_username(username)
             if user and verify_password(user['password_hash'], password):
                 session['user_id'] = user['id']
                 session['username'] = user['username']
-                logger.info(f"[AUTH] User '{username}' logged in successfully from {user_ip}")
                 return redirect('/')
             else:
-                logger.warning(f"[AUTH] Failed login attempt for user '{username}' from {user_ip}")
                 flash('Неверный логин или пароль', 'error')
                 return redirect(url_for('login'))
         else:
-            # --- РЕГИСТРАЦИЯ ---
-            password_confirm = request.form.get('password_confirm', '')
-            invite_code = request.form.get('invite_code', '').strip().upper()
+            # --- ЛОГИКА РЕГИСТРАЦИИ ---
+            print(f"✅ Обработка регистрации для: {username}")
+            try:
+                from backend.database import get_user_by_username, create_user, validate_invite_code, mark_invite_code_used
 
-            # Вспомогательная функция для обработки ошибок с сохранением состояния
-            def register_error(message):
-                session['register_mode'] = True       # Запоминаем, что мы на регистрации
-                session['reg_username'] = username    # Сохраняем логин
-                session['reg_invite'] = invite_code   # Сохраняем инвайт (чтобы пользователь видел опечатку)
-                flash(message, 'error')
-                return redirect(url_for('login'))
+                if len(password) < 6:
+                    return render_registration_error('Пароль должен быть не менее 6 символов')
+                if password != password_confirm:
+                    return render_registration_error('Пароли не совпадают')
+                if not invite_code:
+                    return render_registration_error('Введите код приглашения')
 
-            if len(password) < 6:
-                return register_error('Пароль должен быть не менее 6 символов')
+                user = get_user_by_username(username)
+                if user:
+                    return render_registration_error('Пользователь уже существует')
 
-            if password != password_confirm:
-                return register_error('Пароли не совпадают')
+                invite = validate_invite_code(invite_code)
+                if not invite:
+                    return render_registration_error('Недействительный или использованный код приглашения')
 
-            if not invite_code:
-                return register_error('Введите код приглашения')
+                if create_user(username, password):
+                    new_user = get_user_by_username(username)
+                    session['user_id'] = new_user['id']
+                    session['username'] = new_user['username']
+                    mark_invite_code_used(invite['id'], new_user['id'])
+                    return redirect('/')
+                else:
+                    return render_registration_error('Ошибка при создании пользователя')
 
-            from backend.database import validate_invite_code, mark_invite_code_used
-            invite = validate_invite_code(invite_code)
-
-            if not invite:
-                return register_error('Недействительный или использованный код приглашения')
-
-            if user:
-                logger.warning(f"[AUTH] Registration failed: User '{username}' already exists")
-                return register_error('Пользователь уже существует')
-
-            if create_user(username, password):
-                new_user = get_user_by_username(username)
-                session['user_id'] = new_user['id']
-                session['username'] = new_user['username']
-
-                # Отмечаем код как использованный
-                mark_invite_code_used(invite['id'], new_user['id'])
-
-                logger.info(f"[AUTH] New user registered: '{username}' from {user_ip}")
-                return redirect('/')
-            else:
-                logger.error(f"[AUTH] Registration error for user '{username}'")
-                return register_error('Ошибка при создании пользователя')
+            except Exception as e:
+                print(f"💥 КРИТИЧЕСКАЯ ОШИБКА В РЕГИСТРАЦИИ: {e}")
+                import traceback
+                traceback.print_exc()
+                return render_registration_error(f'Внутренняя ошибка сервера: {str(e)}')
     @app.route('/logout')
     def logout():
         username = session.get('username', 'Unknown')
